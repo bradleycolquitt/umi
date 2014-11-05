@@ -11,16 +11,17 @@ import bmh
 import fasta
 import pdb
 import signal
+import sqlite3
 import numpy as np
 import Levenshtein as lev
-from tables import *
+from subprocess import Popen
 
 BARCODES = "/home/brad/lib/barcodes/bc2.txt"
 
 class extracter:
-    def __init__(self, fastq_fname, h5_fname, compression="blosc"):
+    def __init__(self, fastq_fname, dest_fname, compression="blosc"):
         try:
-            signal.signal(signal.SIGINT, self.signal_term_handler)
+
             ## FASTQ setup ##
             self.fastq_fname = fastq_fname
             print "Buffering fastq data..."
@@ -29,26 +30,26 @@ class extracter:
 
             # count fastq records if not already done so.
             # this is useful to predefine HDF5 table size
-            if os.path.exists(fastq_fname + ".counts"):
-                f = open(fastq_fname + ".counts")
-                self.fastq_num_records = int(f.read())
-            else:
-                print "Counting fastq records..."
-                self.fastq_num_records = fasta.count_records(fastq_fname)
-                f = open(fastq_fname + ".counts", 'w')
-                f.write(str(self.fastq_num_records))
-                f.close()
+            # if os.path.exists(fastq_fname + ".counts"):
+            #     f = open(fastq_fname + ".counts")
+            #     self.fastq_num_records = int(f.read())
+            # else:
+            #     print "Counting fastq records..."
+            #     self.fastq_num_records = fasta.count_records(fastq_fname)
+            #     f = open(fastq_fname + ".counts", 'w')
+            #     f.write(str(self.fastq_num_records))
+            #     f.close()
 
-            ## HDF5 setup ##
-            self.h5_fname = h5_fname
-            self.h5 = 0
+            ## SQLite setup ##
+            self.dest_fname = dest_fname
+            self.dest = 0
 
-            # initialize h5 if does not exist
-            if not os.path.exists(self.h5_fname):
-                self.h5 = initialize_h5(self.h5_fname, self.fastq_num_records, compression)
-            else:
-                self.h5 = open_file(h5_fname, 'a')
-            self.table = self.h5.root.data
+            #pdb.set_trace()
+            # initialize dest if does not exist
+            if not os.path.exists(self.dest_fname):
+                self.dest = initialize_dest(self.dest_fname)
+            self.conn = sqlite3.connect(self.dest_fname)
+            self.c = self.conn.cursor()
 
             ## Barcode setup ##
             self.barcodes_file = open(BARCODES)
@@ -64,8 +65,9 @@ class extracter:
             self.umi_sub = (0,5)
             self.i = 0
             self.bc_distances = np.zeros(self.num_barcodes)
-        except:
-            self.h5.close()
+        except AttributeError as e:
+            print "AttributeError"
+            #print "Attribute error({0}): {1}".format(e.errno, e.strerror)
 
     def read_fastq(self):
         lineno = 0
@@ -94,6 +96,29 @@ class extracter:
         self.h5.root.data.copy("/", "data2", sortby='name', propindexes=True)
         self.h5.move_node("/", newname="data", name="data2", overwrite=True)
         #self.h5.close()
+
+    def read_fastq_sql(self):
+
+        lineno = 0
+        name = ""
+        seq = ""
+        qual = ""
+        bc = ""
+        umi = ""
+
+        print "Reading " + self.fastq_fname
+        for l in self.fastq_file:
+            if lineno % 4 == 0:
+                name = l.split()[0].strip('@')
+            if lineno % 4 == 1:
+                seq = l
+            if lineno % 4 == 3:
+                qual = l
+                bc = self.get_barcode(seq, qual)
+                umi = self.get_umi(seq, qual)
+                self.insert_to_dest(name, bc, umi)
+            lineno += 1
+        self.conn.commit()
 
     # Search sequence [5:11] for barcodes
     # Returns index of barcode with minimum distance
@@ -158,27 +183,19 @@ class extracter:
         record['umi'] = umi
         record.append()
 
-    def signal_term_handler(self, signal, frame):
-        self.h5.close()
+    def insert_to_dest(self, name, bc, umi):
+        self.c.execute('''INSERT INTO data VALUES ('{0}', '{1}', '{2}', 0, 0)'''.format(name, bc, umi))
+        #self.conn.commit()
 
-class Read(IsDescription):
-    name = StringCol(50)
-    bc = UInt8Col()
-    umi = StringCol(5)
-    chrom = UInt8Col()
-    position = Int64Col()
 
 # include functionality to read aligner info from MySQL db and add as attributes
 #    * aligner
 #    * alignment date
 #    * command line
 #    * barcode file
-def initialize_h5(h5_fname, size, compression):
-    h5 = open_file(h5_fname, mode = "w")
-    filters = Filters(complevel=1, complib=compression)
-    table = h5.create_table('/', 'data', Read, "Reads", expectedrows=int(size), filters=filters)
+def initialize_dest(dest_fname):
+    conn = sqlite3.connect(dest_fname)
+    c = conn.cursor()
 
-    # Set attributes
-    table.attrs.bc_file = BARCODES
-
-    return h5
+    c.execute('''CREATE TABLE data (name text, bc int, umi text, chrom int, position int)''')
+    conn.close()

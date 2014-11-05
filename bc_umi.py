@@ -1,0 +1,20 @@
+#! /usr/bin/env python
+
+## General pipeline for processing BC/UMI sequences
+
+import bc_splitter2 as bc
+
+ROOT="/home/brad/src/seq_utils/python/"
+FASTQ=ROOT + "test_dna2.fastq.gz"
+H5=ROOT + "test_dna2.h5"
+
+## Load BC and UMI from fastq into HDF5
+ex = bc.extracter(FASTQ, H5)
+ret = ex.read_fastq()
+## Index hdf5 name column for fast search
+print "Indexing read column..."
+ex.h5.root.data.cols.name.create_index()
+## Align reads to genome using STAR
+
+## Update HDF5 with read aligned chrom and pos using read name as key
+#h5_add_pos.py
