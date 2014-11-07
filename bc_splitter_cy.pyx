@@ -2,20 +2,14 @@
 
 ########################################################################
 # Extracts barcode and unique molecular index (UMI) from fastq record. #
-# Stores in HDF5 file.
+# Stores in SQLite database.
 ########################################################################
 import sys
 import os
-import gzip
-import bmh
 import pdb
-import signal
 import sqlite3
-import numpy as np
 import Levenshtein as lev
-from subprocess import Popen
 
-#import bc_util
 import pyximport; pyximport.install()
 import bc_util_cy as bc_util
 import fasta_cy as fasta
@@ -26,10 +20,10 @@ cdef class extracter:
     cdef public char* fastq_fname
     cdef public char* dest_fname
     cdef int fastq_num_records
-    #cdef int fastq_file
     cdef list barcodes
     cdef tuple bc_sub
     cdef tuple umi_sub
+    cdef str sseq
 
     def __init__(self, fastq_fname, dest_fname):
 
@@ -51,49 +45,49 @@ cdef class extracter:
 
         ## SQLite setup ##
         self.dest_fname = dest_fname
-        #self.dest = 0
-
-        # initialize dest if does not exist
         if not os.path.exists(self.dest_fname):
-            initialize_dest(self.dest_fname)
-        #self.conn = sqlite3.connect(self.dest_fname, isolation_level=None)
-        #self.c = self.conn.cursor()
+            self.initialize_dest()
 
         ## Barcode setup ##
         barcodes_file = open(BARCODES)
         self.barcodes = []
         for l in barcodes_file:
-            # expects format of name \t sequence
-            self.barcodes.append(l.split()[1])
+            self.barcodes.append(l.split()[1])  # expects format of name \t sequence
 
-        ## Various other variables
+        ## Other variables ##
         self.bc_sub = (5,11)
         self.umi_sub = (0,5)
-        # self.i = 0
-        # self.distance_min = 1E6
-        # self.val = 0
-        # self.ind = 0
+        self.sseq = "AAAAAA"
+        #self.ind = 0
 
+    def initialize_dest(self):
+        conn = sqlite3.connect(self.dest_fname)
+        c = conn.cursor()
+        c.execute('''CREATE TABLE data (name text, bc int, umi text, chrom int, position int)''')
+        conn.close()
+
+    ## Main function to read in fastq
     cpdef int read_fastq_sql(self):
+        # Setup chunks for faster SQL insertion
         cdef int chunk_size = self.fastq_num_records / 4
         chunk_range = range(chunk_size)
+
         cdef int lineno = 0
         cdef int fastqno = 0
-        cdef list name = ["" for x in chunk_range]
         cdef str seq = ""
         cdef str qual = ""
+
+        cdef list name = ["" for x in chunk_range]
         cdef list bc = [0 for x in chunk_range]
         cdef list umi = ["" for x in chunk_range]
 
         fastq_file = fasta.open_gz(self.fastq_fname)
         conn = sqlite3.connect(self.dest_fname, isolation_level=None)
         c = conn.cursor()
+
         print "Reading " + self.fastq_fname
-
         cdef str l
-
         for l in fastq_file:
-            #pdb.set_trace()
             if lineno % 4 == 0:
                 name[fastqno] = l.split()[0].strip('@')
             if lineno % 4 == 1:
@@ -112,28 +106,15 @@ cdef class extracter:
 
     # Search sequence [5:11] for barcodes
     # Returns index of barcode with minimum distance
-    #cdef int get_barcode(self, seq, qual):
     cdef int get_barcode(self, seq, qual):
-        #print seq, qual
-
-        squal_min = fasta.min_qual(qual[self.bc_sub[0]:self.bc_sub[1]])
-        #print squal_min
         # First, check qual. If minimum PHRED is less than 20 anywhere in barcode discard
+        squal_min = fasta.min_qual(qual[self.bc_sub[0]:self.bc_sub[1]])
         if squal_min <= 20: return -1
 
-        sseq = seq[self.bc_sub[0]:self.bc_sub[1]]
-        cdef int ind = 0
-        #print sseq
-        # Use Levenshtein distance to identify minimum scoring barcode
-        ind = bc_util.min_barcode(self.barcodes, sseq, ind)
-        return ind
+        self.sseq = seq[self.bc_sub[0]:self.bc_sub[1]]
 
-    # Return candidate with best quality score
-    # NOT NEEDED
-    # def get_barcode_multiple(self, candidates, seq, qual):
-    #     qual = [fasta.qual_to_int(q) for q in qual]
-    #     qual_sum = [sum(q) for q in qual]
-    #     return np.where(qual_sum == qual_sum.min())
+        # Use Levenshtein distance to identify minimum scoring barcode
+        return bc_util.min_barcode(self.barcodes, self.sseq)
 
     def get_umi(self, seq, qual):
         sub = (0, 5)
@@ -148,17 +129,3 @@ cdef class extracter:
         for ind in xrange(len(name)):
             c.execute('''INSERT INTO data VALUES ('{0}', '{1}', '{2}', 0, 0)'''.format(name[ind], bc[ind], umi[ind]))
         c.execute("COMMIT")
-        return 0
-
-
-# include functionality to read aligner info from MySQL db and add as attributes
-#    * aligner
-#    * alignment date
-#    * command line
-#    * barcode file
-def initialize_dest(dest_fname):
-    conn = sqlite3.connect(dest_fname)
-    c = conn.cursor()
-
-    c.execute('''CREATE TABLE data (name text, bc int, umi text, chrom int, position int)''')
-    conn.close()
