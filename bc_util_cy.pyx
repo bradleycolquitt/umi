@@ -1,10 +1,11 @@
 import Levenshtein as lev
 
-cpdef int min_barcode(list barcodes, char* sseq, int ind):
+cpdef int min_barcode(list barcodes, char* sseq):
     cdef int val = 0
     cdef int distance_min = 100
     cdef int i = 0
- 
+    cdef int ind = 0
+    
     for bc in barcodes:
         val = lev.distance(sseq, bc)
         if val == 0:

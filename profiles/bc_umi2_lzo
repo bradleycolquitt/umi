@@ -1,0 +1,48 @@
+Timer unit: 1e-06 s
+
+Total time: 97.1861 s
+File: /home/brad/src/seq_utils/python/bc_umi2_comp.py
+Function: main at line 19
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    19                                           def main():
+    20                                           
+    21                                               ## Align reads to genome using bowtie2
+    22         1          186    186.0      0.0      if not os.path.exists(BAM):
+    23                                                   print "Aligning..."
+    24                                                   cmd_args = "bowtie2 -p 10 -x taeGut1 -U {0} -S {1}; process_sam.sh {1}".format(FASTQ, FASTQ.split(".")[0]+".sam")
+    25                                                   print cmd_args
+    26                                                   p = subprocess.Popen(cmd_args, shell=True)
+    27                                                   p.wait()
+    28                                           
+    29                                               ## Load BC and UMI from fastq into HDF5
+    30         2            6      3.0      0.0      for comp in COMPS:
+    31         1           47     47.0      0.0          print "Testing " + comp
+    32         1            7      7.0      0.0          h5 = "_".join([H5, comp]) + ".h5"
+    33         1           45     45.0      0.0          if not os.path.exists(h5):
+    34         1        65581  65581.0      0.1              ex = bc.extracter(FASTQ, h5, comp)
+    35         1      3400041 3400041.0      3.5              ret = ex.read_fastq()
+    36         1          579    579.0      0.0              ex.h5.close()
+    37                                           
+    38                                           
+    39                                           
+    40                                                   ## Update HDF5 with read aligned chrom and pos using read name as key
+    41         1         1042   1042.0      0.0          hap1 = hap.bam_h5(BAM, h5)
+    42         1           22     22.0      0.0          print "Indexing read column, create_index()..."
+    43         1        34013  34013.0      0.0          hap1.h5.root.data.cols.name.create_index()
+    44         1           15     15.0      0.0          print "update()..."
+    45         1     32176525 32176525.0     33.1          hap1.update()
+    46                                           
+    47         1          838    838.0      0.0          hap1.h5.root.data.cols.name.remove_index()
+    48         1           21     21.0      0.0          print "Indexing read column, create_csindex()..."
+    49         1        21724  21724.0      0.0          hap1.h5.root.data.cols.name.create_csindex()
+    50         1           16     16.0      0.0          print "update()..."
+    51         1     30646850 30646850.0     31.5          hap1.update()
+    52                                           
+    53         1           30     30.0      0.0          print "Copying and sorting table..."
+    54         1        88481  88481.0      0.1          hap1.h5.root.data.copy("/", "data2", sortby='name', propindexes=True)
+    55         1         7844   7844.0      0.0          hap1.h5.move_node("/", newname="data", name="data2", overwrite=True)
+    56                                           
+    57         1           31     31.0      0.0          print "update()..."
+    58         1     30742125 30742125.0     31.6          hap1.update()

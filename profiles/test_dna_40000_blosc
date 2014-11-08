@@ -1,0 +1,58 @@
+Timer unit: 1e-06 s
+
+Total time: 42.4558 s
+File: /home/brad/src/seq_utils/python/bc_umi2_comp.py
+Function: main at line 12
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    12                                           def main(basename):
+    13         1            7      7.0      0.0      ROOT="/home/brad/src/seq_utils/python/test/"
+    14         1            3      3.0      0.0      BASENAME = basename
+    15                                           
+    16         1            6      6.0      0.0      FASTQ=ROOT + BASENAME + ".fastq.gz"
+    17         1            3      3.0      0.0      H5=ROOT + BASENAME
+    18         1            8      8.0      0.0      BAM=FASTQ.split(".")[0]+".bam"
+    19                                               #COMPS=["blosc", "lzo", "zlib"]
+    20         1            3      3.0      0.0      COMPS=["blosc"]
+    21                                           
+    22                                               #pdb.set_trace()
+    23                                           
+    24                                               ## Align reads to genome using bowtie2
+    25         1          206    206.0      0.0      if not os.path.exists(BAM):
+    26         1           47     47.0      0.0          print "Aligning..."
+    27         1           23     23.0      0.0          cmd_args = "bowtie2 -p 10 -x taeGut1 -U {0} -S {1}; process_sam.sh {1}".format(FASTQ, FASTQ.split(".")[0]+".sam")
+    28         1           38     38.0      0.0          print cmd_args
+    29         1         5487   5487.0      0.0          p = subprocess.Popen(cmd_args, shell=True)
+    30         1      1594360 1594360.0      3.8          p.wait()
+    31                                           
+    32                                               ## Load BC and UMI from fastq into HDF5
+    33         2            7      3.5      0.0      for comp in COMPS:
+    34         1           26     26.0      0.0          print "Testing " + comp
+    35         1           12     12.0      0.0          h5 = "_".join([H5, comp]) + ".h5"
+    36         1           43     43.0      0.0          if not os.path.exists(h5):
+    37         1        80794  80794.0      0.2              ex = bc.extracter(FASTQ, h5, comp)
+    38         1      1359402 1359402.0      3.2              ret = ex.read_fastq()
+    39         1          406    406.0      0.0              ex.h5.close()
+    40                                           
+    41                                           
+    42                                           
+    43                                                   ## Update HDF5 with read aligned chrom and pos using read name as key
+    44         1          990    990.0      0.0          hap1 = hap.bam_h5(BAM, h5)
+    45         1           24     24.0      0.0          print "Indexing read column, create_index()..."
+    46         1        17216  17216.0      0.0          hap1.h5.root.data.cols.name.create_index()
+    47         1           18     18.0      0.0          print "update()..."
+    48         1     13772131 13772131.0     32.4          hap1.update()
+    49                                           
+    50         1          927    927.0      0.0          hap1.h5.root.data.cols.name.remove_index()
+    51         1           24     24.0      0.0          print "Indexing read column, create_csindex()..."
+    52         1        12996  12996.0      0.0          hap1.h5.root.data.cols.name.create_csindex()
+    53         1           16     16.0      0.0          print "update()..."
+    54         1     13155313 13155313.0     31.0          hap1.update()
+    55                                           
+    56         1           21     21.0      0.0          print "Copying and sorting table..."
+    57         1        53418  53418.0      0.1          hap1.h5.root.data.copy("/", "data2", sortby='name', propindexes=True)
+    58         1         4250   4250.0      0.0          hap1.h5.move_node("/", newname="data", name="data2", overwrite=True)
+    59                                           
+    60         1           17     17.0      0.0          print "update()..."
+    61         1     12397573 12397573.0     29.2          hap1.update()

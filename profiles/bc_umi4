@@ -1,0 +1,40 @@
+Timer unit: 1e-06 s
+
+Total time: 2.17692 s
+File: /home/brad/src/seq_utils/python/bc_umi4.py
+Function: main at line 12
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    12                                           def main(basename):
+    13         1            7      7.0      0.0      ROOT="/home/brad/src/seq_utils/python/test/"
+    14         1            3      3.0      0.0      BASENAME = basename
+    15         1            3      3.0      0.0      FASTQ=ROOT + BASENAME + ".fastq.gz"
+    16         1            2      2.0      0.0      H5=ROOT + BASENAME
+    17         1            7      7.0      0.0      BAM=FASTQ.split(".")[0]+".bam"
+    18                                               #COMPS=["blosc", "lzo", "zlib"]
+    19         1            2      2.0      0.0      COMPS=["blosc"]
+    20                                           
+    21                                               ## Align reads to genome using bowtie2
+    22         1          165    165.0      0.0      if not os.path.exists(BAM):
+    23                                                   print "Aligning..."
+    24                                                   cmd_args = "bowtie2 -p 10 -x taeGut1 -U {0} -S {1}; process_sam.sh {1}".format(FASTQ, FASTQ.split(".")[0]+".sam")
+    25                                                   print cmd_args
+    26                                                   p = subprocess.Popen(cmd_args, shell=True)
+    27                                                   p.wait()
+    28                                           
+    29                                           ## Load BC and UMI from fastq into HDF5
+    30                                               #print "Testing " + comp
+    31                                               #h5 = "_".join([H5, comp]) + ".h5"
+    32                                               #if not os.path.exists(h5):
+    33         1        37834  37834.0      1.7      ex = bc.extracter(FASTQ, BASENAME + "_bc.h5")
+    34         1      1432603 1432603.0     65.8      ret = ex.read_fastq()
+    35         1          850    850.0      0.0      ex.h5.close()
+    36                                           
+    37                                               ## Update HDF5 with read aligned chrom and pos using read name as key
+    38         1         2772   2772.0      0.1      hap1 = hap.bam_h5(BAM, BASENAME + "_align.h5")
+    39         1       127902 127902.0      5.9      hap1.fill_h5()
+    40         1          832    832.0      0.0      hap1.h5.close()
+    41                                           
+    42         1         1420   1420.0      0.1      ba = hap.bc_align(BASENAME)
+    43         1       572516 572516.0     26.3      ba.join_bc_align()
