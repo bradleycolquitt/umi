@@ -48,9 +48,45 @@ cdef class bam_db:
                 readno = 0
         self.c.execute("COMMIT")
 
+        # Create index for name, chrom, position
+        print "Indexing..."
+        self.c.execute('''
+                       CREATE INDEX align_name ON align(name)
+                       ''')
+        self.c.execute('''
+                       CREATE INDEX align_chrom_position ON align(chrom, position)
+                       ''')
+
         # Create references table containing key for refid and human-readable chromosome label
         print "Create Ref id table"
-        #self.c = self.conn.cursor()
+        self.c.execute("BEGIN TRANSACTION")
+        self.c.execute('''CREATE TABLE IF NOT EXISTS reference (name text, chrom int)''')
+        for idx, ref in enumerate(self.refs):
+            self.c.execute('''INSERT INTO reference VALUES ('{0}', {1})'''.format(ref, idx))
+        self.c.execute("COMMIT")
+
+    cpdef fill_db2(self):
+        print "Filling " + self.dest_fname
+        #self.c.execute('''CREATE TABLE IF NOT EXISTS align (name text, chrom int, position int)''')
+
+        cdef long readno = 0
+        chunk_size = self.bam_counts
+
+        cdef object read
+        self.c.execute("BEGIN TRANSACTION")
+        for read in self.bam.fetch():
+            if not read.is_unmapped:
+                self.c.execute('''UPDATE data SET chrom=?, position=?''', (read.rname, read.pos))
+               # self.c.execute('''INSERT INTO align VALUES ('{0}', {1}, {2})'''.format(read.qname, read.rname, read.pos))
+                readno += 1
+            if readno == chunk_size:
+                self.c.execute("COMMIT")
+                self.c.execute("BEGIN TRANSACTION")
+                readno = 0
+        self.c.execute("COMMIT")
+
+        # Create references table containing key for refid and human-readable chromosome label
+        print "Create Ref id table"
         self.c.execute("BEGIN TRANSACTION")
         self.c.execute('''CREATE TABLE IF NOT EXISTS reference (name text, chrom int)''')
         for idx, ref in enumerate(self.refs):
@@ -69,3 +105,8 @@ cdef class bam_db:
         cdef tuple entry
         for entry in self.c.fetchall():
             out.write("\t".join([str(e) for e in entry]) + "\n")
+
+    def create_indices(self):
+        self.c.execute('''CREATE INDEX main ON
+
+        ''')

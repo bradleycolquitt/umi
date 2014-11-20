@@ -26,7 +26,6 @@ class BarcodeSplitterTest(unittest.TestCase):
 
     def test_read_fastq_sql(self):
         try:
-            #ex=bc.extracter(test_fastq, test_db)
             self.ex.read_fastq_sql()
         except:
             self.fail(tb.print_exc())
@@ -34,6 +33,17 @@ class BarcodeSplitterTest(unittest.TestCase):
     def test_bam_sql(self):
         try:
             self.bs1.fill_join()
+        except:
+            self.fail(tb.print_exc())
+        finally:
+            print "Removing test db..."
+            cmd_args = ["rm", test_db]
+            p = Popen(cmd_args)
+            p.wait()
+
+    def test_bam_sql2(self):
+        try:
+            self.bs1.fill_db2()
         except:
             self.fail(tb.print_exc())
         finally:

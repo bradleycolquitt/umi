@@ -24,13 +24,13 @@ def main(argv):
         ex.read_fastq_sql()
     except:
         os.remove(db_fname)
-        stop("Fastq load failed:" + tb.print_exc())
+        print "Fastq load failed:" + tb.print_exc()
 
     try:
         bam_db = bs.bam_db(args.bam, db_fname)
         bam_db.fill_db()
     except:
-        stop("BAM load failed:" + tb.print_exc())
+        print "BAM load failed:" + tb.print_exc()
 
 
 

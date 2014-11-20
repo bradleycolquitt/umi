@@ -102,6 +102,17 @@ cdef class extracter:
                 fastqno = 0
             lineno += 1
         conn.commit()
+
+        print "Indexing..."
+        c.execute('''
+                  CREATE INDEX data_name ON data(name)
+                  ''')
+        c.execute('''
+                  CREATE INDEX data_bc ON data(bc)
+                  ''')
+        c.execute('''
+                  CREATE INDEX data_umi ON data(umi)
+                  ''')
         conn.close()
 
     # Search sequence [5:11] for barcodes
