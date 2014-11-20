@@ -30,6 +30,7 @@ cdef class bam_db:
         self.join_bc_align()
 
     cpdef fill_db(self):
+        print "Filling " + self.dest_fname
         self.c.execute('''CREATE TABLE IF NOT EXISTS align (name text, chrom int, position int)''')
 
         cdef long readno = 0
@@ -47,7 +48,15 @@ cdef class bam_db:
                 readno = 0
         self.c.execute("COMMIT")
 
-    # modify to joint to db
+        # Create references table containing key for refid and human-readable chromosome label
+        print "Create Ref id table"
+        #self.c = self.conn.cursor()
+        self.c.execute("BEGIN TRANSACTION")
+        self.c.execute('''CREATE TABLE IF NOT EXISTS reference (name text, chrom int)''')
+        for idx, ref in enumerate(self.refs):
+            self.c.execute('''INSERT INTO reference VALUES ('{0}', {1})'''.format(ref, idx))
+        self.c.execute("COMMIT")
+
     cpdef join_bc_align(self):
         self.c.execute('''select data.name,
                           data.bc,
