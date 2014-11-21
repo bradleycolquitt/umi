@@ -1,0 +1,37 @@
+Timer unit: 1e-06 s
+
+Total time: 32.347 s
+File: bc_umi_sql1.py
+Function: main at line 13
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    13                                           def main(basename):
+    14         1            2      2.0      0.0      ROOT="/home/brad/src/seq_utils/python/test/"
+    15         1            1      1.0      0.0      BASENAME = basename
+    16         1            2      2.0      0.0      FASTQ=ROOT + BASENAME + ".fastq.gz"
+    17         1            2      2.0      0.0      DB=ROOT + "../../db/" + BASENAME + "_bc.db"
+    18         1            3      3.0      0.0      BAM=FASTQ.split(".")[0]+".bam"
+    19                                               #pdb.set_trace()
+    20                                               ## Align reads to genome using bowtie2
+    21         1           85     85.0      0.0      if not os.path.exists(BAM):
+    22                                                   print "Aligning..."
+    23                                                   cmd_args = "bowtie2 -p 10 -x taeGut1 -U {0} -S {1}; process_sam.sh {1}".format(FASTQ, FASTQ.split(".")[0]+".sam")
+    24                                                   print cmd_args
+    25                                                   p = subprocess.Popen(cmd_args, shell=True)
+    26                                                   p.wait()
+    27                                           
+    28                                               ## Load BC and UMI from fastq into HDF5
+    29         1       259760 259760.0      0.8      ex = bc.extracter(FASTQ, DB)
+    30         1     29564497 29564497.0     91.4      ret = ex.read_fastq_sql()
+    31         1          525    525.0      0.0      ex.conn.close()
+    32                                           
+    33                                               ## Update HDF5 with read aligned chrom and pos using read name as key
+    34         1        99649  99649.0      0.3      bs1 = bs.bam_db(BAM, DB)
+    35         1           21     21.0      0.0      print "fill_db"
+    36         1      1484498 1484498.0      4.6      bs1.fill_dest()
+    37         1          429    429.0      0.0      bs1.conn.close()
+    38                                           
+    39         1           23     23.0      0.0      print "join"
+    40         1           78     78.0      0.0      ba = bs.bc_align(ROOT + "../../db/" + BASENAME)
+    41         1       937398 937398.0      2.9      ba.join_bc_align()

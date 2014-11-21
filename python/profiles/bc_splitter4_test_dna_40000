@@ -1,0 +1,23 @@
+         1108831 function calls in 12.479 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    10200   11.354    0.001   11.354    0.001 {method 'execute' of 'sqlite3.Cursor' objects}
+    10000    0.482    0.000    0.894    0.000 bc_splitter4.py:105(get_barcode)
+   878426    0.311    0.000    0.311    0.000 {Levenshtein.distance}
+        1    0.072    0.072   12.479   12.479 bc_splitter4.py:75(read_fastq_sql)
+    20000    0.070    0.000    0.070    0.000 {numpy.core.multiarray.array}
+    20000    0.070    0.000    0.153    0.000 fasta.py:9(qual_to_int)
+    20000    0.042    0.000    0.042    0.000 {min}
+    10000    0.036    0.000    0.130    0.000 bc_splitter4.py:182(get_umi)
+   110000    0.013    0.000    0.013    0.000 {ord}
+    10000    0.009    0.000    0.009    0.000 {method 'split' of 'str' objects}
+      100    0.009    0.000   11.370    0.114 bc_splitter4.py:190(insert_to_dest)
+    10000    0.007    0.000    0.007    0.000 {method 'format' of 'str' objects}
+    10000    0.004    0.000    0.004    0.000 {method 'strip' of 'str' objects}
+      100    0.000    0.000    0.000    0.000 {len}
+        1    0.000    0.000   12.479   12.479 <string>:1(<module>)
+        1    0.000    0.000    0.000    0.000 {range}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 {method 'commit' of 'sqlite3.Connection' objects}

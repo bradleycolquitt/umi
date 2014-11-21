@@ -1,0 +1,7 @@
+         2 function calls in 12.017 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1   12.017   12.017   12.017   12.017 <string>:1(<module>)
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}

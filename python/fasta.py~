@@ -1,0 +1,4 @@
+#! /usr/bin/env python
+
+def qual_to_int(qual):
+    return [ord(c) - 33 for c in qual]

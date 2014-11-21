@@ -1,0 +1,79 @@
+#! /usr/bin/env python
+
+import os
+import pysam
+import pdb
+import sqlite3
+import sam
+
+cdef class bam_db:
+    cdef str bam_fname
+    cdef object bam
+    cdef tuple refs
+    cdef long bam_counts
+    cdef str dest_fname
+    cdef object conn
+    cdef object c
+
+    def __init__(self, bam_fname, dest_fname):
+        self.bam_fname = bam_fname
+        self.bam = pysam.Samfile(bam_fname, 'r')
+        self.refs = self.bam.references
+        self.bam_counts = self.bam.count()
+
+        self.dest_fname = dest_fname
+        self.conn = sqlite3.connect(self.dest_fname, isolation_level=None)
+        self.c = self.conn.cursor()
+        self.c.execute('''CREATE TABLE IF NOT EXISTS align (name text, chrom int, position int)''')
+
+    cpdef fill_dest(self):
+        cdef long readno = 0
+        chunk_size = self.bam_counts
+        #cdef list reads = ["" for x in xrange(1, chunk_size)]
+
+        cdef object read
+        self.c.execute("BEGIN TRANSACTION")
+        for read in self.bam.fetch():
+            if not read.is_unmapped:
+                self.c.execute('''INSERT INTO align VALUES ('{0}', {1}, {2})'''.format(read.qname, read.rname, read.pos))
+                readno += 1
+            if readno == chunk_size:
+                self.c.execute("COMMIT")
+                self.c.execute("BEGIN TRANSACTION")
+                readno = 0
+        self.c.execute("COMMIT")
+
+        self.conn.close()
+
+
+cdef class bc_align:
+    cdef str basename
+    cdef str db
+    cdef object conn
+    cdef object c
+
+    def __init__(self, basename):
+        self.basename = basename
+        self.db = basename + "_bc.db"
+        self.conn = sqlite3.connect(self.db)
+        #self.conn.row_factory = sqlite3.Row
+        self.c = self.conn.cursor()
+
+    cpdef join_bc_align(self):
+        self.c.execute('CREATE TABLE IF NOT EXISTS merged (name text, bc int, umi text, chrom, int, position int)')
+
+        self.c.execute('''select data.name,
+                          data.bc,
+                          data.umi,
+                          align.chrom,
+                          align.position
+                          FROM data INNER JOIN align where align.name = data.name''')
+        out = open(self.basename + "_out.txt", 'w')
+        cdef tuple entry
+        for entry in self.c.fetchall():
+            out.write("\t".join([str(e) for e in entry]) + "\n")
+            #self.c.execute('''INSERT INTO merged VALUES '{0}', {1}, {2}, {3}, {4}'''.format(entry[0].encode(),
+             #                                                                         entry[1],
+              #                                                                        str(entry[2]),
+              #                                                                        entry[3],
+              #                                                                        entry[4]))

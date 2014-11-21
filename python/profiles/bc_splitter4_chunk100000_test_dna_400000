@@ -1,0 +1,66 @@
+         17213192 function calls (17051428 primitive calls) in 20.243 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   121323    4.163    0.000    7.631    0.000 arrayprint.py:547(fillFormat)
+   100000    3.429    0.000    6.502    0.000 bc_splitter4.py:102(get_barcode)
+   455061    2.053    0.000    2.053    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+   100002    1.730    0.000    1.730    0.000 {method 'execute' of 'sqlite3.Cursor' objects}
+  8861952    1.583    0.000    1.583    0.000 {Levenshtein.distance}
+   361764    0.634    0.000    0.634    0.000 {numpy.core.multiarray.array}
+    40441    0.523    0.000   10.131    0.000 arrayprint.py:233(_array2string)
+        1    0.415    0.415   20.230   20.230 bc_splitter4.py:72(read_fastq_sql)
+121323/40441    0.412    0.000   10.324    0.000 arrayprint.py:343(array2string)
+   242646    0.386    0.000    0.894    0.000 numeric.py:2320(seterr)
+   200000    0.382    0.000    0.887    0.000 fasta.py:9(qual_to_int)
+   242646    0.304    0.000    0.322    0.000 numeric.py:2416(geterr)
+   321323    0.300    0.000    0.300    0.000 {min}
+   100000    0.225    0.000    0.841    0.000 bc_splitter4.py:147(get_umi)
+   121323    0.217    0.000    0.217    0.000 {method 'compress' of 'numpy.ndarray' objects}
+   121323    0.215    0.000    7.846    0.000 arrayprint.py:533(__init__)
+    40441    0.208    0.000    0.871    0.000 arrayprint.py:639(__init__)
+   100000    0.183    0.000   10.540    0.000 {method 'format' of 'str' objects}
+    80272    0.183    0.000    0.227    0.000 arrayprint.py:632(_digits)
+    40441    0.158    0.000    0.415    0.000 arrayprint.py:465(_formatArray)
+    40441    0.155    0.000    0.155    0.000 arrayprint.py:652(__call__)
+    38192    0.140    0.000    0.172    0.000 bc_splitter4.py:135(get_barcode_hard)
+    40441    0.136    0.000    5.001    0.000 arrayprint.py:700(__init__)
+   121323    0.126    0.000    1.383    0.000 fromnumeric.py:1762(any)
+        1    0.124    0.124   12.394   12.394 bc_splitter4.py:155(insert_to_dest)
+121323/40441    0.117    0.000   10.356    0.000 numeric.py:1581(array_str)
+   242646    0.116    0.000    0.116    0.000 {numpy.core.umath.seterrobj}
+   121323    0.107    0.000    0.512    0.000 numeric.py:2710(__exit__)
+   121323    0.095    0.000    0.943    0.000 _methods.py:31(_any)
+   121323    0.093    0.000    1.036    0.000 {method 'any' of 'numpy.ndarray' objects}
+   121323    0.090    0.000    0.578    0.000 numeric.py:2705(__enter__)
+   485292    0.089    0.000    0.089    0.000 {numpy.core.umath.geterrobj}
+    92312    0.085    0.000    0.680    0.000 _methods.py:19(_amin)
+   121323    0.084    0.000    0.220    0.000 numeric.py:462(asanyarray)
+   121323    0.081    0.000    0.104    0.000 numeric.py:2701(__init__)
+   848042    0.079    0.000    0.079    0.000 {len}
+  1100000    0.064    0.000    0.064    0.000 {ord}
+    92312    0.055    0.000    0.735    0.000 {method 'min' of 'numpy.ndarray' objects}
+    40441    0.053    0.000    0.071    0.000 arrayprint.py:689(__init__)
+   100000    0.050    0.000    0.050    0.000 {method 'split' of 'str' objects}
+   120713    0.049    0.000    0.049    0.000 {max}
+    40441    0.048    0.000    0.048    0.000 {numpy.core.multiarray.where}
+    40441    0.047    0.000    0.047    0.000 arrayprint.py:716(__init__)
+   161154    0.047    0.000    0.047    0.000 {method 'rstrip' of 'str' objects}
+    40441    0.046    0.000    0.066    0.000 arrayprint.py:457(_extendLine)
+    40441    0.040    0.000    0.040    0.000 {method 'ravel' of 'numpy.ndarray' objects}
+    40441    0.034    0.000    0.164    0.000 fromnumeric.py:1281(ravel)
+    40441    0.032    0.000    0.090    0.000 numeric.py:392(asarray)
+    80883    0.032    0.000    0.032    0.000 {range}
+    38192    0.032    0.000    0.032    0.000 {Levenshtein.opcodes}
+   121323    0.032    0.000    0.032    0.000 arrayprint.py:661(__init__)
+    80882    0.028    0.000    0.028    0.000 {isinstance}
+   121323    0.027    0.000    0.027    0.000 {issubclass}
+   100000    0.026    0.000    0.026    0.000 {method 'strip' of 'str' objects}
+   121323    0.023    0.000    0.023    0.000 {method 'pop' of 'dict' objects}
+    80882    0.019    0.000    0.019    0.000 {method 'item' of 'numpy.ndarray' objects}
+    40441    0.017    0.000    0.017    0.000 {_functools.reduce}
+        1    0.013    0.013   20.243   20.243 <string>:1(<module>)
+    40441    0.011    0.000    0.011    0.000 arrayprint.py:744(__init__)
+        1    0.000    0.000    0.000    0.000 {method 'commit' of 'sqlite3.Connection' objects}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
