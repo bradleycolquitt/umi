@@ -32,16 +32,26 @@ cdef class bam_db:
     cpdef fill_db(self):
         # Insert BAM data into db
         print "Filling " + self.dest_fname
-        self.c.execute('''CREATE TABLE IF NOT EXISTS align (name text, chrom int, position int)''')
-
+        self.c.execute('''CREATE TABLE IF NOT EXISTS align (name text,
+                                                            chrom int,
+                                                            position int,
+                                                            strand int)''')
         cdef long readno = 0
         chunk_size = self.bam_counts
 
         cdef object read
+        cdef int pos
         self.c.execute("BEGIN TRANSACTION")
         for read in self.bam.fetch():
             if not read.is_unmapped:
-                self.c.execute('''INSERT INTO align VALUES ('{0}', {1}, {2})'''.format(read.qname, read.rname, read.pos))
+                if read.is_reverse:
+                    pos = read.alen
+                else:
+                    pos = read.pos
+                self.c.execute('''INSERT INTO align VALUES (?, ?, ?, ?)''', (read.qname,
+                                                                             read.rname,
+                                                                             pos,
+                                                                             read.is_reverse))
                 readno += 1
             if readno == chunk_size:
                 self.c.execute("COMMIT")

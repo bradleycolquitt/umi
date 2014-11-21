@@ -3,6 +3,7 @@
 import unittest
 
 import sys
+import sqlite3
 import traceback as tb
 from subprocess import Popen
 
@@ -32,18 +33,12 @@ class BarcodeSplitterTest(unittest.TestCase):
 
     def test_bam_sql(self):
         try:
-            self.bs1.fill_join()
-        except:
-            self.fail(tb.print_exc())
-        finally:
-            print "Removing test db..."
-            cmd_args = ["rm", test_db]
-            p = Popen(cmd_args)
-            p.wait()
-
-    def test_bam_sql2(self):
-        try:
-            self.bs1.fill_db2()
+            self.bs1.fill_db()
+            conn = sqlite3.connect(test_db)
+            c = conn.cursor()
+            c.execute("SELECT * FROM align LIMIT 0, 10")
+            for res in c.fetchall():
+                print res
         except:
             self.fail(tb.print_exc())
         finally:

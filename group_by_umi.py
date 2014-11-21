@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-#######################
+#############################################################################
 #  Script to join barcode and UMI data from STRT data with gene annotations
 #  Input database is created by load_to_db.py
 #  Outputs tab-delimited text file with following columns:
@@ -12,7 +12,7 @@
 #      gene ID
 #      transcript ID
 #      element
-#########################
+##############################################################################
 
 import sys
 import sqlite3
@@ -24,6 +24,8 @@ statement = '''SELECT
                    reference.name,
                    align.position,
                    count(data.umi) as total_umi,
+                   count(case when align.strand = anno.genes.strand then data.umi end)
+                       as total_umi_same_strand,
                    count(distinct data.umi) as unique_umi,
                    anno.genes.gene_id,
                    anno.genes.transcript_id,
@@ -37,6 +39,7 @@ statement = '''SELECT
                                 AND anno.genes.build=:build
                GROUP BY
                    data.bc, align.chrom, align.position
+
          '''
 
 def execute_join(db, build):
@@ -58,7 +61,9 @@ def execute_join(db, build):
 
     # Write to file
     out = open(db + "_test.txt", "w")
-    out.write("\t".join(["bc", "chrom", "position", "total_umi", "unique_umi", "gene_id", "transcript_id", "element"]) + "\n")
+    out.write("\t".join(["bc", "chrom", "position",
+                         "total_umi", "total_umi_same_strand", "unique_umi",
+                         "gene_id", "transcript_id", "element"]) + "\n")
     for r1 in res.fetchall():
         out.write("\t".join(map(str, r1))+ "\n")
 

@@ -3,6 +3,7 @@
 import sys
 import os
 import argparse
+import traceback as tb
 
 import pyximport; pyximport.install()
 import bc_splitter_cy as bc
