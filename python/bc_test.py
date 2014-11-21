@@ -11,7 +11,7 @@ import pyximport; pyximport.install()
 import bc_splitter_cy as bc
 import bam_sql_cy as bs
 
-path = "/home/brad/src/seq_utils/test_files/"
+path = "/home/brad/src/umi/test_files/"
 base = "test_dna_40000"
 test_fastq = "".join([path, base, ".fastq.gz"])
 test_bam = "".join([path, base, ".bam"])
