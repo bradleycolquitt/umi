@@ -1,0 +1,117 @@
+#! /usr/bin/env python
+
+########################################################################
+# Extracts barcode and unique molecular index (UMI) from fastq record. #
+#
+########################################################################
+import sys
+import os
+import pdb
+import gzip
+import Levenshtein as lev
+
+import pyximport; pyximport.install()
+import bc_util_cy as bc_util
+import fasta_cy as fasta
+
+BARCODES = "/home/brad/lib/barcodes/bc8.txt"
+
+## TODO
+# filter reads by:
+# UMI quality score (min >17)
+# discard if >14 A at 3' end
+# maximum of 9 G post barcode, discard if otherwise
+
+cdef class extracter:
+    cdef public char* fastq_fname
+    cdef public char* dest_fname
+    cdef int fastq_num_records
+    cdef list barcodes
+    cdef tuple bc_sub
+    cdef tuple umi_sub
+    cdef str sseq
+
+    def __init__(self, fastq_fname):
+
+        ## FASTQ setup ##
+        self.fastq_fname = fastq_fname
+        print "Buffering fastq data..."
+
+        ## Barcode setup ##
+        barcodes_file = open(BARCODES)
+        self.barcodes = {}
+        for l in barcodes_file:
+            ls = l.split()
+            self.barcodes[ls[0]] = ls[1]  # expects format of name \t sequence
+
+        ## Output files ##
+        os.mkdir("split")
+        basename = fastq_fname.split(".fastq.gz")
+        self.output_dict = {}
+        for key in self.barcodes.items():
+            self.output_dict[items[1]] = gzip.open("".join([basename, "_bc", items[0], ".fastq.gz"]), 'wb')
+
+        ## Other variables ##
+        self.bc_sub = (5,11)
+        self.umi_sub = (0,5)
+        self.sseq = "AAAAAA"
+        #self.ind = 0
+
+    ## Main function to read in fastq
+    cpdef int read_fastq(self):
+        cdef int lineno = 0
+        cdef int fastqno = 0
+        cdef str seq = ""
+        cdef str qual = ""
+        cdef str bc = ""
+        cdef str umi = ""
+        # cdef list name = ["" for x in chunk_range]
+        # cdef list bc = [0 for x in chunk_range]
+        # cdef list umi = ["" for x in chunk_range]
+
+        fastq_file = fasta.open_gz(self.fastq_fname)
+
+        print "Reading " + self.fastq_fname
+        cdef str l
+        for l in fastq_file:
+            if lineno % 4 == 0:
+                name[fastqno] = l.split()[0].strip('@')
+            if lineno % 4 == 1:
+                seq = l
+                if
+            if lineno % 4 == 3:
+                qual = l
+                # bc[fastqno] = self.get_barcode(seq, qual)
+                # umi[fastqno] = self.get_umi(seq, qual)
+                bc = self.get_barcode(seq, qual)
+                #fastqno += 1
+
+                self.write_bc(name, seq, qual, bc)
+            #fastqno = 0
+            #lineno += 1
+
+    # Search sequence [5:11] for barcodes
+    # Returns index of barcode with minimum distance
+    cdef int get_barcode(self, seq, qual):
+        # First, check qual. If minimum PHRED is less than 20 anywhere in barcode discard
+        squal_min = fasta.min_qual(qual[self.bc_sub[0]:self.bc_sub[1]])
+        if squal_min <= 20: return -1
+
+        self.sseq = seq[self.bc_sub[0]:self.bc_sub[1]]
+
+        # Use Levenshtein distance to identify minimum scoring barcode
+        return bc_util.min_barcode(self.barcodes, self.sseq)
+
+    def get_umi(self, seq, qual):
+        sub = (0, 5)
+        min_qual = fasta.min_qual(qual[sub[0]:sub[1]])
+        if (min_qual > 17):
+            return seq[sub[0]:sub[1]]
+        else:
+            return 'N'
+
+    cdef write_bc(self, name, seq, qual, bc):
+        self.output_dict[bc].write("{0}\n{1}\n{0}\n{2}\n".format(name, seq, qual))
+
+    cdef close_files(self):
+        [x.close() for x in self.output_dict]
