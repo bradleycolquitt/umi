@@ -16,6 +16,12 @@ import fasta_cy as fasta
 
 BARCODES = "/home/brad/lib/barcodes/bc2.txt"
 
+## TODO
+# filter reads by:
+# UMI quality score (min >17)
+# discard if >14 A at 3' end
+# maximum of 9 G post barcode, discard if otherwise
+
 cdef class extracter:
     cdef public char* fastq_fname
     cdef public char* dest_fname
@@ -24,6 +30,7 @@ cdef class extracter:
     cdef tuple bc_sub
     cdef tuple umi_sub
     cdef str sseq
+    cdef int min_qual
 
     def __init__(self, fastq_fname, dest_fname):
 
@@ -31,8 +38,8 @@ cdef class extracter:
         self.fastq_fname = fastq_fname
         print "Buffering fastq data..."
 
-        # count fastq records if not already done so.
-        # this is useful to predefine HDF5 table size
+        #count fastq records if not already done so.
+        #this is useful to predefine HDF5 table size
         if os.path.exists(fastq_fname + ".counts"):
             f = open(fastq_fname + ".counts")
             self.fastq_num_records = int(f.read())
@@ -58,6 +65,7 @@ cdef class extracter:
         self.bc_sub = (5,11)
         self.umi_sub = (0,5)
         self.sseq = "AAAAAA"
+        self.min_qual = 0
         #self.ind = 0
 
     def initialize_dest(self):
@@ -74,8 +82,10 @@ cdef class extracter:
 
         cdef int lineno = 0
         cdef int fastqno = 0
-        cdef str seq = ""
-        cdef str qual = ""
+        #cdef str seq = ""
+        #cdef str qual = ""
+        cdef bytes seq = b""
+        cdef bytes qual = b""
 
         cdef list name = ["" for x in chunk_range]
         cdef list bc = [0 for x in chunk_range]
@@ -86,12 +96,13 @@ cdef class extracter:
         c = conn.cursor()
 
         print "Reading " + self.fastq_fname
-        cdef str l
+        cdef bytes l
         for l in fastq_file:
             if lineno % 4 == 0:
                 name[fastqno] = l.split()[0].strip('@')
             if lineno % 4 == 1:
                 seq = l
+
             if lineno % 4 == 3:
                 qual = l
                 bc[fastqno] = self.get_barcode(seq, qual)
@@ -127,13 +138,13 @@ cdef class extracter:
         # Use Levenshtein distance to identify minimum scoring barcode
         return bc_util.min_barcode(self.barcodes, self.sseq)
 
-    def get_umi(self, seq, qual):
-        sub = (0, 5)
-        min_qual = fasta.min_qual(qual[sub[0]:sub[1]])
-        if (min_qual > 20):
-            return seq[sub[0]:sub[1]]
+
+    cdef bytes get_umi(self, bytes& seq, bytes& qual):
+        self.min_qual = fasta.min_qual(qual[self.sub[0]:self.sub[1]])
+        if (self.min_qual > 17):
+            return seq[self.sub[0]:self.sub[1]]
         else:
-            return 'N'
+            return b'N'
 
     cdef insert_to_dest(self, name, bc, umi, c):
         c.execute("BEGIN")

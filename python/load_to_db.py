@@ -17,7 +17,7 @@ def main(argv):
     args = parser.parse_args()
 
     db_path = "/media/data/strt_db/"
-    db_fname = os.path.basename(args.fastq).split(".fastq")[0]
+    db_fname = os.path.basename(args.fastq).split(".fastq.gz")[0]
     db_fname = db_path + db_fname + ".db"
 
     try:
