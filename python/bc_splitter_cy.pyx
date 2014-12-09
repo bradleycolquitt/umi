@@ -14,14 +14,10 @@ import pyximport; pyximport.install()
 import bc_util_cy as bc_util
 import fasta_cy as fasta
 
-BARCODES = "/home/brad/lib/barcodes/bc2.txt"
+BARCODES = "/home/brad/lib/barcodes/"
 
-## TODO
-# filter reads by:
-# UMI quality score (min >17)
-# discard if >14 A at 3' end
-# maximum of 9 G post barcode, discard if otherwise
-
+# TODO
+# filter out
 cdef class extracter:
     cdef public char* fastq_fname
     cdef public char* dest_fname
@@ -30,25 +26,11 @@ cdef class extracter:
     cdef tuple bc_sub
     cdef tuple umi_sub
     cdef str sseq
-    cdef int min_qual
 
-    def __init__(self, fastq_fname, dest_fname):
+    def __init__(self, fastq_fname, dest_fname, barcodes):
 
         ## FASTQ setup ##
         self.fastq_fname = fastq_fname
-        print "Buffering fastq data..."
-
-        #count fastq records if not already done so.
-        #this is useful to predefine HDF5 table size
-        if os.path.exists(fastq_fname + ".counts"):
-            f = open(fastq_fname + ".counts")
-            self.fastq_num_records = int(f.read())
-        else:
-            print "Counting fastq records..."
-            self.fastq_num_records = fasta.count_records(fastq_fname)
-            f = open(fastq_fname + ".counts", 'w')
-            f.write(str(self.fastq_num_records))
-            f.close()
 
         ## SQLite setup ##
         self.dest_fname = dest_fname
@@ -56,7 +38,10 @@ cdef class extracter:
             self.initialize_dest()
 
         ## Barcode setup ##
-        barcodes_file = open(BARCODES)
+        try:
+            barcodes_file = open("".join([BARCODES, barcodes, ".txt"]))
+        except IOError:
+            raise("Barcode file not found.")
         self.barcodes = []
         for l in barcodes_file:
             self.barcodes.append(l.split()[1])  # expects format of name \t sequence
@@ -65,8 +50,6 @@ cdef class extracter:
         self.bc_sub = (5,11)
         self.umi_sub = (0,5)
         self.sseq = "AAAAAA"
-        self.min_qual = 0
-        #self.ind = 0
 
     def initialize_dest(self):
         conn = sqlite3.connect(self.dest_fname)
@@ -82,27 +65,25 @@ cdef class extracter:
 
         cdef int lineno = 0
         cdef int fastqno = 0
-        #cdef str seq = ""
-        #cdef str qual = ""
-        cdef bytes seq = b""
-        cdef bytes qual = b""
+        cdef str seq = ""
+        cdef str qual = ""
 
         cdef list name = ["" for x in chunk_range]
         cdef list bc = [0 for x in chunk_range]
         cdef list umi = ["" for x in chunk_range]
 
+        print "Buffering fastq data..."
         fastq_file = fasta.open_gz(self.fastq_fname)
         conn = sqlite3.connect(self.dest_fname, isolation_level=None)
         c = conn.cursor()
 
         print "Reading " + self.fastq_fname
-        cdef bytes l
+        cdef str l
         for l in fastq_file:
             if lineno % 4 == 0:
                 name[fastqno] = l.split()[0].strip('@')
             if lineno % 4 == 1:
                 seq = l
-
             if lineno % 4 == 3:
                 qual = l
                 bc[fastqno] = self.get_barcode(seq, qual)
@@ -130,7 +111,7 @@ cdef class extracter:
     # Returns index of barcode with minimum distance
     cdef int get_barcode(self, seq, qual):
         # First, check qual. If minimum PHRED is less than 20 anywhere in barcode discard
-        squal_min = fasta.min_qual(qual[self.bc_sub[0]:self.bc_sub[1]])
+        int squal_min = fasta.min_qual(qual[self.bc_sub[0]:self.bc_sub[1]])
         if squal_min <= 20: return -1
 
         self.sseq = seq[self.bc_sub[0]:self.bc_sub[1]]
@@ -138,13 +119,13 @@ cdef class extracter:
         # Use Levenshtein distance to identify minimum scoring barcode
         return bc_util.min_barcode(self.barcodes, self.sseq)
 
-
-    cdef bytes get_umi(self, bytes& seq, bytes& qual):
-        self.min_qual = fasta.min_qual(qual[self.sub[0]:self.sub[1]])
-        if (self.min_qual > 17):
-            return seq[self.sub[0]:self.sub[1]]
+    def get_umi(self, seq, qual):
+        sub = (0, 5)
+        min_qual = fasta.min_qual(qual[sub[0]:sub[1]])
+        if (min_qual > 17):
+            return seq[sub[0]:sub[1]]
         else:
-            return b'N'
+            return 'N'
 
     cdef insert_to_dest(self, name, bc, umi, c):
         c.execute("BEGIN")
