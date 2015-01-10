@@ -6,7 +6,7 @@ import subprocess
 import cStringIO
 io_method = cStringIO.StringIO
 
-cpdef int min_qual(qual):
+cpdef int min_qual(str qual):
     return min(np.array([ord(c) - 33 for c in qual]))
 
 cpdef open_gz(fname):

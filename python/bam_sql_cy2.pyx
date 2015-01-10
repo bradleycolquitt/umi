@@ -1,9 +1,5 @@
 #! /usr/bin/env python
 
-#### TODO modify:
-######   extract bc and umi from bam
-######   use CIGAR info to filter and define
-
 import os
 import pysam
 import pdb
@@ -14,7 +10,6 @@ import bc_util_cy as bc_util
 
 from cpython cimport array
 from cpython cimport bool
-#from array import array
 
 BARCODES = "/home/brad/lib/barcodes/"
 
@@ -84,15 +79,15 @@ cdef class bam_db:
                 if cigar[0][1] > 25: continue
 
                 if read.is_reverse:
-                    pos = read.alen
+                    pos = read.alen + 1
                 else:
-                    pos = read.pos
+                    pos = read.pos + 1
                 seq = read.query_sequence
                 qual = read.query_qualities
                 cqual = qual
                 bc = bc_util.get_barcode(seq,
                                          cqual,
-                                         (6,11),
+                                         (5,11),
                                          self.nofilter_bc,
                                          self.barcodes)
                 umi = bc_util.get_umi(seq,

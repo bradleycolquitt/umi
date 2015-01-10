@@ -1,12 +1,12 @@
 import fasta_cy as fasta
 import Levenshtein as lev
 
-cdef int min_barcode(list barcodes, char* sseq):
+cdef int min_barcode(list barcodes, str sseq):
     cdef int val = 0
     cdef int distance_min = 100
     cdef int i = 0
     cdef int ind = 0
-    
+
     for bc in barcodes:
         val = lev.distance(sseq, bc)
         if val == 0:
@@ -24,7 +24,7 @@ cdef int min_barcode(list barcodes, char* sseq):
     
 cpdef int get_barcode(str seq, char[:] qual, sub_range, nofilter, barcodes):
     cdef int squal_min
-    cdef char* sseq
+    cdef str sseq
     if not nofilter:
         #  First, check qual. If minimum PHRED is less than 20 anywhere in barcode discard
         squal_min = min(qual[sub_range[0]:sub_range[1]])
