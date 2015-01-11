@@ -6,3 +6,5 @@ So will hold off on development of read db for expression quant
 However, bam_sql_cy2 will still be potentially useful for quick access to expression levels.
 
 Look into just bc filtering compared to raw counts.
+
+Most filtering due to cigar filter
