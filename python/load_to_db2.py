@@ -11,7 +11,6 @@ import bam_sql_cy2 as bs
 
 def main(argv):
     parser = argparse.ArgumentParser()
-    #parser.add_argument('-f', '--fastq', dest='fastq', help='Original fastq file')
     parser.add_argument('-c', '--barcodes', dest='barcodes', help='Barcode file.')
     parser.add_argument('-b', '--bam', dest='bam', help='Aligned reads. Must be indexed')
     parser.add_argument('-o', '--output', help="Output database prefix")

@@ -4,6 +4,7 @@ import os
 import pysam
 import pdb
 import sqlite3
+import re
 
 import pyximport; pyximport.install()
 import bc_util_cy as bc_util
@@ -63,6 +64,8 @@ cdef class bam_db:
         chunk_size = self.bam_counts / 10
         cdef object read
         cdef list cigar
+        cdef str cigarstring
+        cdef list tags
         cdef int pos
         cdef str seq
         cdef array.array qual
@@ -72,16 +75,25 @@ cdef class bam_db:
 
         self.c.execute("BEGIN TRANSACTION")
 
+        re_cigar = re.compile("[IDN]")
+
         for read in self.bam.fetch():
             if not read.is_unmapped:
-                # CIGAR>25 indicator of poorly structured barcode sequence
-                cigar = read.cigartuples
-                if cigar[0][1] > 25: continue
+
+                # Filter out reads with insertions, deletions, or reference skips
+                cigarstring = read.cigarstring
+                if re_tag.search(cigarstring): continue
+
+                # Filter out multimappers
+                tags = read.tags
+                if tags[0][1] > 1: continue
 
                 if read.is_reverse:
-                    pos = read.alen + 1
+                    # reference_end points to one past last aligned residue.
+                    # Will convert to last residue with switch to 1-based indexing
+                    pos = read.reference_end
                 else:
-                    pos = read.pos + 1
+                    pos = read.reference_start + 1
                 seq = read.query_sequence
                 qual = read.query_qualities
                 cqual = qual
@@ -124,9 +136,6 @@ cdef class bam_db:
         self.c.execute("COMMIT")
 
     def create_indices(self):
-        self.c.execute('''
-                       CREATE INDEX align_name ON align(name)
-                       ''')
         self.c.execute('''
                        CREATE INDEX align_chrom_position ON align(chrom, position)
                        ''')
