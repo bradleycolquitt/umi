@@ -1,4 +1,5 @@
 #include <htslib/sam.h>
+#include <bam_utils.h>
 #include <sqlite3>
 
 using namespace std;
@@ -7,16 +8,31 @@ class BamDB {
 
     // Variables
     const char* bam_fname;
-    // bam_file bam;
+    samFile* bam;
     bam_hdr_t* header;
     hts_idx_t* idx;
-    unsigned int bam_counts;
+    unsigned int total_mapped;
     const char* db_fname;
     ppdb* conn;
     vector<string> barcodes;
 
 
-    BamDB() : {};
+    BamDB(string bam_fname, string dest_fname, string barcodes)
+        : bam_fname(bam_fname)
+        , dest_fname(dest_fname)
+        {
+            bam = sam_open(bam_fname, "rb");
+            header = sam_hdr_read(bam);
+            idx = bam_index_load(bam_fname);
+            total_mapped = count_bam_records(idx, header);
+
+
+
+        }
+    ~BamDB() {
+        free(mapped);
+        free(unmapped);
+    }
 
 
     //fill_db
