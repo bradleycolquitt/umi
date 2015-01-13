@@ -35,7 +35,8 @@ def main(argv):
     #    print "Fastq load failed:" + tb.print_exc()
 
     try:
-        bam_db = bs.bam_db(args.bam, db_fname, args.barcodes, args.nofilter_bc, args.nofilter_umi)
+        bam_db = bs.bam_db(args.bam, db_fname, args.barcodes,
+                           args.nofilter_bc, args.nofilter_umi)
         bam_db.fill_db()
     except:
         print "BAM load failed:" + tb.print_exc()

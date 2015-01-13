@@ -14,6 +14,8 @@ import pyximport; pyximport.install()
 import bc_util_cy as bc_util
 import fasta_cy as fasta
 
+from cpython cimport bool
+
 BARCODES = "/home/brad/lib/barcodes/"
 
 # TODO
@@ -26,8 +28,10 @@ cdef class extracter:
     cdef tuple bc_sub
     cdef tuple umi_sub
     cdef str sseq
+    cdef bool nofilter_bc
+    cdef bool nofilter_umi
 
-    def __init__(self, fastq_fname, dest_fname, barcodes):
+    def __init__(self, fastq_fname, dest_fname, barcodes, nofilter_bc, nofilter_umi):
 
         ## FASTQ setup ##
         self.fastq_fname = fastq_fname
@@ -37,6 +41,18 @@ cdef class extracter:
         if not os.path.exists(self.dest_fname):
             self.initialize_dest()
 
+        # count fastq records if not already done so.
+        # this is useful to predefine sqlite chunk size
+        if os.path.exists(fastq_fname + ".counts"):
+            f = open(fastq_fname + ".counts")
+            self.fastq_num_records = int(f.read())
+        else:
+            print "Counting fastq records..."
+            self.fastq_num_records = fasta.count_records(fastq_fname)
+            f = open(fastq_fname + ".counts", 'w')
+            f.write(str(self.fastq_num_records))
+            f.close()
+
         ## Barcode setup ##
         try:
             barcodes_file = open("".join([BARCODES, barcodes, ".txt"]))
@@ -45,6 +61,10 @@ cdef class extracter:
         self.barcodes = []
         for l in barcodes_file:
             self.barcodes.append(l.split()[1])  # expects format of name \t sequence
+
+        ## Filter flags ##
+        self.nofilter_bc = nofilter_bc
+        self.nofilter_umi = nofilter_umi
 
         ## Other variables ##
         self.bc_sub = (5,11)
@@ -111,8 +131,9 @@ cdef class extracter:
     # Returns index of barcode with minimum distance
     cdef int get_barcode(self, seq, qual):
         # First, check qual. If minimum PHRED is less than 20 anywhere in barcode discard
-        int squal_min = fasta.min_qual(qual[self.bc_sub[0]:self.bc_sub[1]])
-        if squal_min <= 20: return -1
+        if not self.nofilter_bc:
+            squal_min = fasta.min_qual(qual[self.bc_sub[0]:self.bc_sub[1]])
+            if squal_min <= 20: return -1
 
         self.sseq = seq[self.bc_sub[0]:self.bc_sub[1]]
 
@@ -121,11 +142,11 @@ cdef class extracter:
 
     def get_umi(self, seq, qual):
         sub = (0, 5)
-        min_qual = fasta.min_qual(qual[sub[0]:sub[1]])
-        if (min_qual > 17):
-            return seq[sub[0]:sub[1]]
-        else:
-            return 'N'
+        if not self.nofilter_umi:
+            min_qual = fasta.min_qual(qual[sub[0]:sub[1]])
+            if min_qual < 17:
+                return 'N'
+        return seq[sub[0]:sub[1]]
 
     cdef insert_to_dest(self, name, bc, umi, c):
         c.execute("BEGIN")

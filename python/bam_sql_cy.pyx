@@ -1,5 +1,9 @@
 #! /usr/bin/env python
 
+#### TODO modify:
+######   extract bc and umi from bam
+######   use CIGAR info to filter and define
+
 import os
 import pysam
 import pdb
@@ -17,7 +21,7 @@ cdef class bam_db:
     def __init__(self, bam_fname, dest_fname):
         self.bam_fname = bam_fname
         print self.bam_fname
-        self.bam = pysam.Samfile(bam_fname, 'rb')
+        self.bam = pysam.AlignmentFile(bam_fname, 'rb')
         self.refs = self.bam.references
         self.bam_counts = self.bam.count()
 
@@ -39,10 +43,10 @@ cdef class bam_db:
                                                             strand int)''')
         cdef long readno = 0
         chunk_size = self.bam_counts
-
         cdef object read
         cdef int pos
         self.c.execute("BEGIN TRANSACTION")
+
         for read in self.bam.fetch():
             if not read.is_unmapped:
                 if read.is_reverse:

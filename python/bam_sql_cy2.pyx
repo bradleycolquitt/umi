@@ -55,6 +55,8 @@ cdef class bam_db:
         # Insert BAM data into db
         print "Filling " + self.dest_fname
         self.c.execute('''CREATE TABLE IF NOT EXISTS align (name text,
+                                                            instrument text,
+                                                            flowcell text,
                                                             chrom int,
                                                             position int,
                                                             strand int,
@@ -66,6 +68,10 @@ cdef class bam_db:
         cdef list cigar
         cdef str cigarstring
         cdef list tags
+        cdef str qname
+        cdef list qname_list
+        cdef str instrument
+        cdef str flowcell
         cdef int pos
         cdef str seq
         cdef array.array qual
@@ -82,11 +88,16 @@ cdef class bam_db:
 
                 # Filter out reads with insertions, deletions, or reference skips
                 cigarstring = read.cigarstring
-                if re_tag.search(cigarstring): continue
+                if re_cigar.search(cigarstring): continue
 
                 # Filter out multimappers
                 tags = read.tags
                 if tags[0][1] > 1: continue
+
+                qname = read.qname
+                qname_list = qname.split(":")
+                instrument = qname_list[0]
+                flowcell = qname_list[2]
 
                 if read.is_reverse:
                     # reference_end points to one past last aligned residue.
@@ -94,9 +105,11 @@ cdef class bam_db:
                     pos = read.reference_end
                 else:
                     pos = read.reference_start + 1
+
                 seq = read.query_sequence
                 qual = read.query_qualities
                 cqual = qual
+
                 bc = bc_util.get_barcode(seq,
                                          cqual,
                                          (5,11),
@@ -107,12 +120,14 @@ cdef class bam_db:
                                       (0,5),
                                       self.nofilter_umi)
 
-                self.c.execute('''INSERT INTO align VALUES (?, ?, ?, ?, ?, ?)''', (read.qname,
-                                                                             read.rname,
-                                                                             pos,
-                                                                             read.is_reverse,
-                                                                             bc,
-                                                                             umi))
+                self.c.execute('''INSERT INTO align VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', (read.qname,
+                                                                                         instrument,
+                                                                                         flowcell,
+                                                                                         read.rname,
+                                                                                         pos,
+                                                                                         read.is_reverse,
+                                                                                         bc,
+                                                                                         umi))
                 readno += 1
             if readno == chunk_size:
                 self.c.execute("COMMIT")
@@ -120,14 +135,15 @@ cdef class bam_db:
                 readno = 0
         self.c.execute("COMMIT")
 
+
         # Create index for name, chrom, position
-        print "Indexing..."
         self.create_indices()
 
+        # Create references table containing key for refid and human-readable chromosome label
         self.create_reftable()
 
     def create_reftable(self):
-        # Create references table containing key for refid and human-readable chromosome label
+
         print "Create Ref id table"
         self.c.execute("BEGIN TRANSACTION")
         self.c.execute('''CREATE TABLE IF NOT EXISTS reference (name text, chrom int)''')
@@ -136,6 +152,7 @@ cdef class bam_db:
         self.c.execute("COMMIT")
 
     def create_indices(self):
+        print "Indexing..."
         self.c.execute('''
                        CREATE INDEX align_chrom_position ON align(chrom, position)
                        ''')

@@ -20,7 +20,7 @@ test_db = "".join([path, base, ".db"])
 class BarcodeSplitterTest(unittest.TestCase):
     def setUp(self):
         try:
-            self.ex=bc.extracter(test_fastq, test_db)
+            self.ex=bc.extracter(test_fastq, test_db, "bc8")
             self.bs1 = bs.bam_db(test_bam, test_db)
         except:
             self.fail( tb.print_exc())

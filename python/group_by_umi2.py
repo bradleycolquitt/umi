@@ -21,28 +21,27 @@ import pdb
 import argparse
 import traceback as tb
 
-# statement_summary = '''SELECT
-#                    data.bc,
-#                    reference.name,
-#                    align.position,
-#                    count(data.umi) as total_umi,
-#                    count(case when align.strand = anno.genes.strand then data.umi end)
-#                        as total_umi_same_strand,
-#                    count(distinct data.umi) as unique_umi,
-#                    anno.genes.gene_id,
-#                    anno.genes.transcript_id,
-#                    anno.genes.element
-#                FROM
-#                    data INNER JOIN align ON data.name = align.name
-#                         JOIN reference ON align.chrom = reference.chrom
-#                         JOIN anno.genes
-#                             ON reference.name = anno.genes.chrom
-#                                 AND align.position BETWEEN anno.genes.start AND anno.genes.end
-#                                 AND anno.genes.build=:build
-#                GROUP BY
-#                    data.bc, align.chrom, align.position
+statement_summary = '''SELECT
+                   align.bc,
+                   align.name,
+                   align.position,
+                   count(align.umi) as total_umi,
+                   count(case when align.strand = anno.genes.strand then align.umi end)
+                       as total_umi_same_strand,
+                   count(distinct align.umi) as unique_umi,
+                   anno.genes.gene_id,
+                   anno.genes.transcript_id,
+                   anno.genes.element
+               FROM
+                   align JOIN reference ON align.chrom = reference.chrom
+                        JOIN anno.genes
+                            ON reference.name = anno.genes.chrom
+                                AND align.position BETWEEN anno.genes.start AND anno.genes.end
+                                AND anno.genes.build=:build
+               GROUP BY
+                   align.bc, align.chrom, align.position
 
-#          '''
+         '''
 
 statement_full = '''SELECT
                    align.bc,
