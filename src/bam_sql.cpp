@@ -1,10 +1,12 @@
 #include <fstream>
+#include <sstream>
 #include <bam_sql.h>
 #include <bam_utils.h>
 #include <string_utils.h>
 #include <boost/regex.hpp>
 
 //#define DEBUG
+#define BUFFER_SIZE 256
 
 using namespace std;
 
@@ -68,7 +70,7 @@ void BamDB::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
     #endif
 }
 
-static int callback_table(void *NotUsed, int argc, char **argv, char **azColName){
+static int callback(void *NotUsed, int argc, char **argv, char **azColName){
    int i;
    for(i=0; i<argc; i++){
        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
@@ -80,16 +82,17 @@ static int callback_table(void *NotUsed, int argc, char **argv, char **azColName
 int create_table(BamDB* bamdb) {
     char* err_msg = 0;
     int rc;
-    const char* statement = "CREATE TABLE IF NOT EXISTS align (name text,       \
-                                                           instrument text,     \
-                                                           flowcell text,       \
-                                                           chrom int,           \
-                                                           position int,        \
-                                                           strand int,          \
-                                                           bc int,              \
-                                                           umi text);";
+    const char* statement = "CREATE TABLE IF NOT EXISTS align (                      \
+                                                           instrument text,          \
+                                                           flowcell text,            \
+                                                           cluster text,             \
+                                                           tid int,                  \
+                                                           position int,             \
+                                                           strand int,               \
+                                                           bc int,                   \
+                                                           umi int);";
 
-    rc = sqlite3_exec(bamdb->get_conn(), statement, callback_table, 0, &err_msg);
+    rc = sqlite3_exec(bamdb->get_conn(), statement, callback, 0, &err_msg);
     if( rc != SQLITE_OK ){
        fprintf(stderr, "SQL error: %s\n", err_msg);
        sqlite3_free(err_msg);
@@ -99,8 +102,29 @@ int create_table(BamDB* bamdb) {
     return 0;
 }
 
-int process_cigar(bam1_t* b, uint32_t* cigar) {
-    cigar = bam_get_cigar(b);
+int insert_to_db(BamDB* bamdb, dbRecord* record, sqlite3_stmt* stmt) {
+
+    sqlite3_bind_text(stmt, 1, record->instrument, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, record->flowcell, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, record->cluster, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 4, record->tid);
+    sqlite3_bind_int(stmt, 5, record->pos);
+    sqlite3_bind_int(stmt, 6, record->strand);
+    sqlite3_bind_int(stmt, 7, record->bc);
+    sqlite3_bind_int(stmt, 8, record->umi);
+
+    sqlite3_step(stmt);
+
+    sqlite3_clear_bindings(stmt);
+    sqlite3_reset(stmt);
+
+    return 0;
+}
+
+
+
+int bad_cigar(bam1_t* b) {
+    uint32_t* cigar = bam_get_cigar(b);
     for (int i=0; i < b->core.n_cigar; ++i) {
         uint32_t op = bam_cigar_op(cigar[i]);
         if (op > 0 & op < 4) {
@@ -128,15 +152,17 @@ int filter_bad_reads(bam1_t* b, const char tag[2]) {
         return 0;
 }
 
-void split_qname(bam1_t* b, char** instrument, char** flowcell) {
+void split_qname(bam1_t* b, dbRecord* record) {
     char* qname = bam_get_qname(b);
     char* qname_array = strtok(qname, ":");
     int j = 0;
     while (qname_array != NULL) {
         if (j == 0) {
-            *instrument = qname_array;
+            record->instrument = qname_array;
         } else if (j == 2) {
-            *flowcell = qname_array;
+            record->flowcell = qname_array;
+        } else if (j>2) {
+            strcat(record->cluster, qname_array);
         }
         qname_array = strtok(NULL, ":");
         ++j;
@@ -185,14 +211,16 @@ int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, int start, int
     }
     return min_barcode;
 }
-int get_barcode(bam1_t* b, int start, int end, vector<vector<int> >* barcodes) {
+
+//intended for barcodes
+int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes) {
     uint8_t* seq = bam_get_seq(b);
     uint8_t* qual = bam_get_qual(b);
-    uint32_t l_qseq = b->core.l_qseq;
+    //uint32_t l_qseq = b->core.l_qseq;
 
     int min = 100000;
     int qual_int;
-    for (int j = 0; j < b->core.l_qseq ; ++j) {
+    for (int j = start; j <= end ; ++j) {
         int qual_int = int(*qual);
         if (qual_int < min) min = qual_int;
         qual += 1;
@@ -201,91 +229,96 @@ int get_barcode(bam1_t* b, int start, int end, vector<vector<int> >* barcodes) {
 
     int bc_idx = -1;
     int out = compare_barcode(seq, barcodes, start, end, &bc_idx);
-    //cout << bc_idx << endl;
+    if (out > 1) return -1;
+    return bc_idx;
+}
 
+int ShiftAdd(int sum, int digit)
+{
+     return sum*10 + digit;
+}
 
+//intended for umi
+int get_sequence(bam1_t* b, int start, int end) {
+    uint8_t* seq = bam_get_seq(b);
+    uint8_t* qual = bam_get_qual(b);
 
+    int min = 100000;
+    int qual_int;
+    for (int j = start; j <= end ; ++j) {
+        int qual_int = int(*qual);
+        if (qual_int < min) min = qual_int;
+        qual += 1; //advance pointer
+    }
+    if (min < 20) {
+        return 0;
+    } else {
+        vector<bitset<4> > umi_full(5);
+        vector<int> umi_int(5);
+        for (int j = start; j <= end; ++j) {
+            umi_full[j] = bam_seqi(seq, j);
+            umi_int[j] = umi_full[j].to_ulong();
+        }
+        return accumulate(umi_int.begin(), umi_int.end(), 0, ShiftAdd);
+    }
 }
 
 int fill_db(BamDB* bamdb) {
-    //boost::regex filter_pattern ( "[IDN]" );
+
     int tid = 0; // just first reference for now
     hts_itr_t* bam_itr = bam_itr_queryi(bamdb->get_idx(), tid, 0, bamdb->get_rlen(tid));
-
-    uint32_t* cigar;
-    uint8_t* seq;
-    uint8_t* qual;
-    uint8_t* aux_p;
-
-    char* instrument;
-    char* flowcell;
-
-    uint32_t pos;
-    // while (bam_itr_next(bamdb->get_bam(), bam_itr, r)) {
-    // }
-
+    dbRecord record = {};
+    record.tid = tid;
 
     bam1_t* b = bam_init1();
     int result;
+    vector<bitset<4> > umi_full(5);
     int i = 0;
+
+    sqlite3_stmt * stmt;
+    char * sErrMsg = 0;
+    const char * tail = 0;
+    char SQL[BUFFER_SIZE];
+
+
+    sprintf(SQL, "INSERT INTO align VALUES (@IN, @FL, @CL, @TID, @POS, @STR, @BC, @UMI);");
+    sqlite3_prepare_v2(bamdb->get_conn(),  SQL, BUFFER_SIZE, &stmt, &tail);
+
+
+    sqlite3_exec(bamdb->get_conn(), "BEGIN TRANSACTION", NULL, NULL, &sErrMsg);
+
     while ((result = sam_itr_next(bamdb->get_bam(), bam_itr, b)) >= 0) {
-        if (i == 10) return 0;
+
+        //if (i == 10) return 0;
         // get cigar
-        if (process_cigar(b, cigar)) {
-            continue;
-        }
+        if (bad_cigar(b)) continue;
 
-
-        const char tag[2] = {'N', 'H'};
+        //const char tag[2] = {'N', 'H'};
         //filter_bad_reads(b, tag);
 
-
-        if (i==0) { split_qname(b, &instrument, &flowcell); }
+        if (i==0) { split_qname(b, &record); }
 
         if (bam_is_rev(b)) {
-            pos = bam_endpos(b);
+            record.strand = true;
+            record.pos = bam_endpos(b);
         } else {
-            pos = b->core.pos + 1;
+            record.pos = b->core.pos + 1;
         }
 
-        seq = bam_get_seq(b);
-        qual = bam_get_qual(b);
+        record.bc = get_sequence(b, 5, 10, bamdb->get_barcodes());
+        record.umi = get_sequence(b, 0, 4);
 
-        for (int j = 0; j < b->core.l_qseq ; ++j) {
-            //cout << int(*qual) << " ";
-            qual += 1;
+        try {
+            insert_to_db(bamdb, &record, stmt);
+        } catch ( exception& e ) {
+            exit(1);
         }
-        //cout << endl;
-        get_barcode(b, 5, 10, bamdb->get_barcodes());
         ++i;
-
+        // if (i == chunk_size) {
+        //     commit
+        // }
     }
 
-
-
-
-//         qname = *bam_get_qname(r);
-//         vector<string> qname_list = split(qname); // need to include from R project
-//         instrument = qname_list[0];
-//         flowcell = qname_list[2];
-
-//         if (bam_is_rev(r)) {
-//             pos = bam_endpos(r);
-//         } else {
-//             pos = bam->core.pos;
-//         }
-
-//         seq_p = bam_get_seq(r);
-//         qual_p = bam_get_qual(r);
-
-//         bc = get_barcode(seq_p, qual_p, 5, 11, bamdb->barcodes);
-//         umi = get_umi(seq_p, qual_p, 0, 4);
-//     }
-
-     return 0;
-}
-
-
-void get_umi(uint32_t* seq_p, uint32_t* qual_p, int start, int end, string& umi) {
-
+    sqlite3_exec(bamdb->get_conn(), "END TRANSACTION", NULL, NULL, &sErrMsg);
+    return 0;
 }

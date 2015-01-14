@@ -34,8 +34,19 @@ class BamDB {
             sqlite3* get_conn() {return conn;}
 };
 
+struct dbRecord {
+    char* instrument;
+    char* flowcell;
+    char cluster[14];
+    int tid;
+    uint32_t pos;
+    bool strand;
+    int bc;
+    int umi;
+};
+
 int create_table(BamDB* bamdb);
 
 int fill_db(BamDB* bamdb);
 
-#endif BAM_SQL_H
+#endif //BAM_SQL_H
