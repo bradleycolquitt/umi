@@ -1,4 +1,8 @@
+#include <fstream>
+#include <bam_utils.h>
 #include <htslib/sam.h>
+
+using namespace std;
 
 uint64_t count_bam_records(hts_idx_t* idx, bam_hdr_t* header) {
 
@@ -16,23 +20,35 @@ uint64_t count_bam_records(hts_idx_t* idx, bam_hdr_t* header) {
     for (int i=0; i < header->n_targets; ++i) {
         total += mapped[i];
     }
-
     return total;
 }
 
 vector<int> seq2int(string& s) {
-    vector<string>::iterator it = s.begin();
-    vector<string>::iterator it_end = s.end();
-    vector<int> out(s.size());
-    for (int i=0; i < s.size() ; ++i) {
-        switch ( s[i])
-        {
-            case 'A': out[i] = 1;
-            case 'C': out[i] = 2;
-            case 'G': out[i] = 4;
-            case 'T': out[i] = 8;
-            case 'N': out[i] = 15;
-        }
-    }
-    return out;
+string::iterator it = s.begin();
+string::iterator it_end = s.end();
+vector<int> out_vec(s.size());
+for (int i=0; i < s.size() ; ++i) {
+//std::cout << s[i] << " ";
+switch ( s[i] )
+{
+case 'A':
+    out_vec[i] = 1;
+    break;
+case 'C':
+    out_vec[i] = 2;
+    break;
+case 'G':
+    out_vec[i] = 4;
+    break;
+case 'T':
+    out_vec[i] = 8;
+    break;
+case 'N':
+    out_vec[i] = 15;
+    break;
+
+}
+}
+    //cout << endl;
+    return out_vec;
 }

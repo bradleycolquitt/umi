@@ -8,8 +8,6 @@
 
 using namespace std;
 
-#define BC_PATH "/home/brad/lib/barcodes/"
-
 class BamDB {
     private:
             const char* bam_fname;
@@ -20,16 +18,15 @@ class BamDB {
             uint64_t total_mapped;
             const char* db_fname;
             sqlite3* conn;
-            vector<vector<int> > barcodes;
+            vector<string> barcodes;
 
     public:
             BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname);
-            void set_barcodes(const char* fname, vector<vector<int> >& vec_p);
+            void set_barcodes(const char* fname, vector<string>& vec_p);
 
             samFile* get_bam() { return bam; }
-            bam_hdr_t* get_header() { return header; }
             hts_idx_t* get_idx() { return idx; }
-            vector<vector<int> >* get_barcodes() { return &barcodes; }
+            vector<string>* get_barcodes() { return &barcodes; }
             int get_rlen(int tid) { return header->target_len[tid]; }
             sqlite3* get_conn() {return conn;}
 };

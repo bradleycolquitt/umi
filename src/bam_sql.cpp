@@ -4,6 +4,8 @@
 #include <string_utils.h>
 #include <boost/regex.hpp>
 
+//#define DEBUG
+
 using namespace std;
 
 BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname)
@@ -29,7 +31,7 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
         strcpy(bc_path, BC_PATH);
         strcat(bc_path, barcodes_fname);
         strcat(bc_path, ".txt");
-        cout << bc_path << endl;
+        //cout << bc_path << endl;
         try {
             set_barcodes(bc_path, barcodes);
         } catch (exception &e) {
@@ -39,7 +41,7 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
 
 // Read in barcodes file and load sequences intobarcodes vector
 // consider encoding barcodes as bits or just int
-void BamDB::set_barcodes(const char* fname, vector<int[]>& vec_p) {
+void BamDB::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
 
     ifstream bc_s(fname, ifstream::in);
 
@@ -56,10 +58,14 @@ void BamDB::set_barcodes(const char* fname, vector<int[]>& vec_p) {
 
         vec_p.push_back(seq2int(sline[1]));
     }
-
-    for (vector<string>::iterator it = vec_p.begin(); it != vec_p.end(); ++it) {
-        cout << *it << endl;
+    #ifdef DEBUG
+    for (vector<vector<int> >::iterator it = vec_p.begin(); it != vec_p.end(); ++it) {
+        for (vector<int>::iterator it2 = it->begin(); it2 != it->end(); ++it2) {
+        cout << (*it2);
+        }
+        cout << endl;
     }
+    #endif
 }
 
 static int callback_table(void *NotUsed, int argc, char **argv, char **azColName){
@@ -137,24 +143,27 @@ void split_qname(bam1_t* b, char** instrument, char** flowcell) {
     }
 }
 
-int compare_barcode(uint8_t* seq, vector<int[]>* barcodes, int start, int end, int* bc_idx) {
-    vector<string>::iterator bc_iter = barcodes->begin();
-    vector<string>::iterator bc_iter_end = barcodes->end();
+int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, int start, int end, int* bc_idx) {
+    vector<vector<int> >::iterator bc_iter = barcodes->begin();
+    vector<vector<int> >::iterator bc_iter_end = barcodes->end();
 
     vector<int> mm(barcodes->size());
 
     int i = 0;
     int k = 0;
     for (; bc_iter != bc_iter_end ; ++bc_iter) {
-
         for (int j = start; j <= end ; ++j) {
+            #ifdef DEBUG
             cout << (*bc_iter)[k] << " ";
             cout << "i" << bam_seqi(seq, j) << " ";
+            #endif
             if ((*bc_iter)[k] != bam_seqi(seq, j)) mm[k] += 1;
             ++k;
         }
         k = 0;
+        #ifdef DEBUG
         cout << endl;
+        #endif
         if (mm[i] == 0) {
             *bc_idx = i;
             return 0;
@@ -176,7 +185,7 @@ int compare_barcode(uint8_t* seq, vector<int[]>* barcodes, int start, int end, i
     }
     return min_barcode;
 }
-int get_barcode(bam1_t* b, int start, int end, vector<int[]>* barcodes) {
+int get_barcode(bam1_t* b, int start, int end, vector<vector<int> >* barcodes) {
     uint8_t* seq = bam_get_seq(b);
     uint8_t* qual = bam_get_qual(b);
     uint32_t l_qseq = b->core.l_qseq;
@@ -192,7 +201,7 @@ int get_barcode(bam1_t* b, int start, int end, vector<int[]>* barcodes) {
 
     int bc_idx = -1;
     int out = compare_barcode(seq, barcodes, start, end, &bc_idx);
-    cout << bc_idx << endl;
+    //cout << bc_idx << endl;
 
 
 
@@ -246,8 +255,8 @@ int fill_db(BamDB* bamdb) {
             //cout << int(*qual) << " ";
             qual += 1;
         }
-        cout << endl;
-        get_barcode(b, 5, 11, bamdb->get_barcodes());
+        //cout << endl;
+        get_barcode(b, 5, 10, bamdb->get_barcodes());
         ++i;
 
     }

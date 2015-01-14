@@ -1,0 +1,21 @@
+#include <htslib/sam.h>
+
+uint64_t count_bam_records(hts_idx_t* idx, bam_hdr_t* header) {
+
+    uint64_t* mapped = new uint64_t[header->n_targets * sizeof(uint64_t)];
+    uint64_t* unmapped = new uint64_t[header->n_targets * sizeof(uint64_t)];
+
+    int* ret;
+    ret = new int[header->n_targets];
+
+    for (int i=0; i < header->n_targets; ++i) {
+        ret[i] = hts_idx_get_stat(idx, i, &mapped[i], &unmapped[i]);
+    }
+
+    int total = 0;
+    for (int i=0; i < header->n_targets; ++i) {
+        total += mapped[i];
+    }
+
+    return total;
+}
