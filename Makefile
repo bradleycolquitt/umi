@@ -1,23 +1,34 @@
 CC=g++
-CXXFLAGS=-I/usr/local/include -I./src
 
-NAME := test
-CXX_SRCS := $(wildcard src/*.cpp)
-CXX_OBJS := ${CXX_SRCS:.cpp=.o}
-OBJS :=  $(CXX_OBJS)
-INCLUDE_DIRS := /usr/local/include
-LIBRARY_DIRS= /usr/local/lib .
-LIBS=hts sqlite3 boost_regex
+NAME := load2db
+CXX_SRCS := $(filter-out src/test.cpp, $(wildcard src/*.cpp))
+
+INCLUDE_DIRS := /usr/local/include ./src
 CPPFLAGS += $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
+CPPFLAGS += -std=c++11
+
+
+LIBRARY_DIRS := /usr/local/lib
+LIBS += hts sqlite3 boost_regex boost_program_options
+
+ifdef TEST
+CXX_SRCS := $(filter-out src/load2db.cpp, $(wildcard src/*.cpp))
+NAME := test
+LIBS += profiler
+CPPFLAGS += -pg -fno-omit-frame-pointer
+endif
+
 LDFLAGS += $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))
 LDFLAGS += $(foreach library, $(LIBS), -l$(library))
+
+OBJS := ${CXX_SRCS:.cpp=.o}
 
 .PHONY: all compile
 
 all: $(NAME)
 
 $(NAME): $(OBJS)
-	$(CC)  -o $@ $^ $(LDFLAGS)
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 %.o: src/%.cpp
 	$(CC) $(CXXFLAGS) -c -o $@ $<
@@ -25,5 +36,3 @@ $(NAME): $(OBJS)
 clean:
 	@- $(RM) $(NAME)
 	@- $(RM) $(OBJS)
-#bam.o: src/bam_utils.cpp src/bam_sql.cpp src/test.cpp
-#	$(CC) $(CXXFLAGS) -c src/bam_utils.cpp src/bam_sql.cpp src/test.cpp
