@@ -4,9 +4,9 @@
 #include <bam_utils.h>
 #include <string_utils.h>
 #include <boost/regex.hpp>
-
+#include <gperftools/profiler.h>
 //#define DEBUG
-#define BUFFER_SIZE 256
+//#define BUFFER_SIZE 256
 
 using namespace std;
 
@@ -158,17 +158,30 @@ void split_qname(bam1_t* b, dbRecord* record) {
     int j = 0;
     while (qname_array != NULL) {
         if (j == 0) {
-            record->instrument = qname_array;
+            strcpy(record->instrument, qname_array);
         } else if (j == 2) {
-            record->flowcell = qname_array;
-        } else if (j>2) {
+            strcpy(record->flowcell, qname_array);
+        } else if (j== 3) {
+            strcpy(record->cluster, qname_array);
+        } else if (j > 3) {
             strcat(record->cluster, qname_array);
         }
         qname_array = strtok(NULL, ":");
         ++j;
     }
+
 }
 
+int compare_barcode_local(vector<vector<int> >::iterator bc_iter, uint8_t* seq, int start, int end) {
+    int k = 0;
+    int mm = 0;
+    for (int j = start; j <= end ; ++j) {
+        if (mm > 1) return 0;
+        if ((*bc_iter)[k] != bam_seqi(seq, j)) mm += 1;
+        ++k;
+    }
+    return 1;
+}
 int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, int start, int end, int* bc_idx) {
     vector<vector<int> >::iterator bc_iter = barcodes->begin();
     vector<vector<int> >::iterator bc_iter_end = barcodes->end();
@@ -176,40 +189,26 @@ int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, int start, int
     vector<int> mm(barcodes->size());
 
     int i = 0;
-    int k = 0;
+    int result = 0;
     for (; bc_iter != bc_iter_end ; ++bc_iter) {
-        for (int j = start; j <= end ; ++j) {
-            #ifdef DEBUG
-            cout << (*bc_iter)[k] << " ";
-            cout << "i" << bam_seqi(seq, j) << " ";
-            #endif
-            if ((*bc_iter)[k] != bam_seqi(seq, j)) mm[k] += 1;
-            ++k;
-        }
-        k = 0;
-        #ifdef DEBUG
-        cout << endl;
-        #endif
-        if (mm[i] == 0) {
-            *bc_idx = i;
-            return 0;
-        }
+        if (compare_barcode_local(bc_iter, seq, start, end))
+            return i;
         ++i;
     }
-
-    // No perfect match found.
-    i = 0;
-    vector<int>::iterator mm_iter = mm.begin();
-    vector<int>::iterator mm_iter_end = mm.end();
-    int min_barcode = 1000;
-    for (; mm_iter != mm_iter_end; ++ mm_iter) {
-        if (*mm_iter < min_barcode) {
-            min_barcode = *mm_iter;
-            *bc_idx = i;
-        }
-        ++i;
-    }
-    return min_barcode;
+    return -1;
+    // // No perfect match found.
+    // i = 0;
+    // vector<int>::iterator mm_iter = mm.begin();
+    // vector<int>::iterator mm_iter_end = mm.end();
+    // int min_barcode = 1000;
+    // for (; mm_iter != mm_iter_end; ++ mm_iter) {
+    //     if (*mm_iter < min_barcode) {
+    //         min_barcode = *mm_iter;
+    //         *bc_idx = i;
+    //     }
+    //     ++i;
+    // }
+    // return min_barcode;
 }
 
 //intended for barcodes
@@ -296,7 +295,7 @@ int fill_db(BamDB* bamdb) {
         //const char tag[2] = {'N', 'H'};
         //filter_bad_reads(b, tag);
 
-        if (i==0) { split_qname(b, &record); }
+        split_qname(b, &record);
 
         if (bam_is_rev(b)) {
             record.strand = true;
@@ -313,6 +312,8 @@ int fill_db(BamDB* bamdb) {
         } catch ( exception& e ) {
             exit(1);
         }
+
+        //record.reset_qname();
         ++i;
         // if (i == chunk_size) {
         //     commit
@@ -320,5 +321,7 @@ int fill_db(BamDB* bamdb) {
     }
 
     sqlite3_exec(bamdb->get_conn(), "END TRANSACTION", NULL, NULL, &sErrMsg);
+    sqlite3_close(bamdb->get_conn());
+
     return 0;
 }

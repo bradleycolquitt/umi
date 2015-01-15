@@ -9,6 +9,7 @@
 using namespace std;
 
 #define BC_PATH "/home/brad/lib/barcodes/"
+#define BUFFER_SIZE 256
 
 class BamDB {
     private:
@@ -35,14 +36,16 @@ class BamDB {
 };
 
 struct dbRecord {
-    char* instrument;
-    char* flowcell;
-    char cluster[14];
+    char instrument[BUFFER_SIZE];
+    char flowcell[BUFFER_SIZE];
+    char cluster[BUFFER_SIZE];
+
     int tid;
     uint32_t pos;
     bool strand;
     int bc;
     int umi;
+
 };
 
 int create_table(BamDB* bamdb);
