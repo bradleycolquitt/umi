@@ -6,7 +6,6 @@
 #include <boost/regex.hpp>
 #include <gperftools/profiler.h>
 //#define DEBUG
-//#define BUFFER_SIZE 256
 
 using namespace std;
 
@@ -19,7 +18,7 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
         idx = bam_index_load(bam_fname);
         total_mapped = count_bam_records(idx, header);
 
-        // // possibly add in multithreading flagB
+        // // possibly add in multithreading flags
         int sqlite_code = sqlite3_open(dest_fname, &conn);
         if(sqlite_code){
             fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(conn));
@@ -28,23 +27,23 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
             fprintf(stdout, "Opened database successfully\n");
         }
 
-        // // Barcode setup
+
+        //Barcode setup
         char bc_path[255];
         strcpy(bc_path, BC_PATH);
         strcat(bc_path, barcodes_fname);
         strcat(bc_path, ".txt");
-        //cout << bc_path << endl;
+
         try {
             set_barcodes(bc_path, barcodes);
         } catch (exception &e) {
             cout << e.what() << endl;
         }
+
     }
 
 // Read in barcodes file and load sequences intobarcodes vector
-// consider encoding barcodes as bits or just int
 void BamDB::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
-
     ifstream bc_s(fname, ifstream::in);
 
     if (!bc_s.good()) {
@@ -57,9 +56,12 @@ void BamDB::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
            cout << "Error" << endl;
         }
         vector<string> sline = split(line, '\t');
+        vector<int> s2i = seq2int(sline[1]);
 
-        vec_p.push_back(seq2int(sline[1]));
+        vec_p.push_back(s2i);
+
     }
+
     #ifdef DEBUG
     for (vector<vector<int> >::iterator it = vec_p.begin(); it != vec_p.end(); ++it) {
         for (vector<int>::iterator it2 = it->begin(); it2 != it->end(); ++it2) {
@@ -70,13 +72,20 @@ void BamDB::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
     #endif
 }
 
-static int callback(void *NotUsed, int argc, char **argv, char **azColName){
-   int i;
-   for(i=0; i<argc; i++){
-       printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-   }
-   printf("\n");
-   return 0;
+void BamDB::create_reftable() {
+    char* err_msg = 0;
+    int rc;
+    char ** names = header->target_name;
+    rc = sqlite3_exec(conn, "CREATE TABLE IF NOT EXISTS reference (name text, tid int)", NULL, NULL, &err_msg);
+
+    char stmt[BUFFER_SIZE];
+    for (int i = 0; i < header->n_targets; ++i) {
+        sprintf(stmt, "INSERT INTO reference VALUES (\'%s\', %i)", names[i], i);
+        rc = sqlite3_exec(conn, stmt, NULL, NULL, &err_smg);
+        if ( rc != SQLITE_OK) {
+            fprintf(stderr, "SQL error: %s\n", err_smg);
+        }
+    }
 }
 
 int create_table(BamDB* bamdb) {
@@ -92,7 +101,7 @@ int create_table(BamDB* bamdb) {
                                                            bc int,                   \
                                                            umi int);";
 
-    rc = sqlite3_exec(bamdb->get_conn(), statement, callback, 0, &err_msg);
+    rc = sqlite3_exec(bamdb->get_conn(), statement, NULL, NULL, &err_msg);
     if( rc != SQLITE_OK ){
        fprintf(stderr, "SQL error: %s\n", err_msg);
        sqlite3_free(err_msg);
@@ -134,24 +143,16 @@ int bad_cigar(bam1_t* b) {
     return 0;
 }
 
-// get aux. filter out NH>1
-int filter_bad_reads(bam1_t* b, const char tag[2]) {
-        // // FIGURE OUT HOW TO TRANSLATE s
-        // uint8_t *s = bam_aux_get(b, "NH");
-        // if (s) {
-        //     cout << "hit";
-        //     char* decoded_nh = bam_aux2Z(s);
-        //     cout << decoded_nh;
-        //     // for (int i =0; i<10; ++i) {
-        //     //     cout << decoded_nh;
-        //     //     s += 1;
-        //     // }
-        // }
-        // cout << endl;
-
-        return 0;
+// Filter out multimappers (NH>1)
+int filter_multi_reads(bam1_t* b) {
+    uint8_t *s = bam_aux_get(b, "NH");
+    if (s) {
+        if (bam_aux2i(s) > 1) return 1;
+    }
+    return 0;
 }
 
+// Split qname/read metadata
 void split_qname(bam1_t* b, dbRecord* record) {
     char* qname = bam_get_qname(b);
     char* qname_array = strtok(qname, ":");
@@ -182,41 +183,28 @@ int compare_barcode_local(vector<vector<int> >::iterator bc_iter, uint8_t* seq, 
     }
     return 1;
 }
-int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, int start, int end, int* bc_idx) {
+
+int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, int start, int end) {
     vector<vector<int> >::iterator bc_iter = barcodes->begin();
     vector<vector<int> >::iterator bc_iter_end = barcodes->end();
-
-    vector<int> mm(barcodes->size());
+    //vector<int> mm(barcodes->size());
 
     int i = 0;
-    int result = 0;
     for (; bc_iter != bc_iter_end ; ++bc_iter) {
         if (compare_barcode_local(bc_iter, seq, start, end))
             return i;
         ++i;
     }
+
     return -1;
-    // // No perfect match found.
-    // i = 0;
-    // vector<int>::iterator mm_iter = mm.begin();
-    // vector<int>::iterator mm_iter_end = mm.end();
-    // int min_barcode = 1000;
-    // for (; mm_iter != mm_iter_end; ++ mm_iter) {
-    //     if (*mm_iter < min_barcode) {
-    //         min_barcode = *mm_iter;
-    //         *bc_idx = i;
-    //     }
-    //     ++i;
-    // }
-    // return min_barcode;
 }
 
 //intended for barcodes
 int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes) {
     uint8_t* seq = bam_get_seq(b);
     uint8_t* qual = bam_get_qual(b);
-    //uint32_t l_qseq = b->core.l_qseq;
 
+    // skip read if barcode quality less than 20
     int min = 100000;
     int qual_int;
     for (int j = start; j <= end ; ++j) {
@@ -226,10 +214,8 @@ int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes) 
     }
     if (min < 20) return -1;
 
-    int bc_idx = -1;
-    int out = compare_barcode(seq, barcodes, start, end, &bc_idx);
-    if (out > 1) return -1;
-    return bc_idx;
+    // returns index of perfect match or one mismatch
+    return compare_barcode(seq, barcodes, start, end);
 }
 
 int ShiftAdd(int sum, int digit)
@@ -245,55 +231,67 @@ int get_sequence(bam1_t* b, int start, int end) {
     int min = 100000;
     int qual_int;
     for (int j = start; j <= end ; ++j) {
-        int qual_int = int(*qual);
-        if (qual_int < min) min = qual_int;
-        qual += 1; //advance pointer
+        if (int(*qual) < min) min = int(*qual);
+        qual += 1;
     }
     if (min < 20) {
         return 0;
     } else {
-        vector<bitset<4> > umi_full(5);
         vector<int> umi_int(5);
         for (int j = start; j <= end; ++j) {
-            umi_full[j] = bam_seqi(seq, j);
-            umi_int[j] = umi_full[j].to_ulong();
+             umi_int[j] = (int)bam_seqi(seq, j);
         }
         return accumulate(umi_int.begin(), umi_int.end(), 0, ShiftAdd);
     }
 }
 
 int fill_db(BamDB* bamdb) {
+    char ** names = bamdb->get_header()->target_name;
+    char* err_smg = 0;
 
-    int tid = 0; // just first reference for now
-    hts_itr_t* bam_itr = bam_itr_queryi(bamdb->get_idx(), tid, 0, bamdb->get_rlen(tid));
+    //turn off synchronous writing to disk for increased insertion speed
+    sqlite3_exec(bamdb->get_conn(), "PRAGMA synchronous = OFF", NULL, NULL, &err_smg);
+
+    hts_itr_t* bam_itr;
+    for (int tid = 0; tid < bamdb->get_header()->n_targets; ++tid) {
+        bam_itr = bam_itr_queryi(bamdb->get_idx(), tid, 0, bamdb->get_rlen(tid));
+        fill_db_tid(bamdb, tid, bam_itr);
+    }
+
+    sqlite3_close(bamdb->get_conn());
+    return 0;
+
+}
+
+int fill_db_tid(BamDB* bamdb, int tid, hts_itr_t* bam_itr) {
     dbRecord record = {};
     record.tid = tid;
 
     bam1_t* b = bam_init1();
     int result;
-    vector<bitset<4> > umi_full(5);
     int i = 0;
 
-    sqlite3_stmt * stmt;
-    char * sErrMsg = 0;
-    const char * tail = 0;
+    sqlite3_stmt* stmt;
+    char* err_smg = 0;
+    const char* tail = 0;
     char SQL[BUFFER_SIZE];
 
 
     sprintf(SQL, "INSERT INTO align VALUES (@IN, @FL, @CL, @TID, @POS, @STR, @BC, @UMI);");
     sqlite3_prepare_v2(bamdb->get_conn(),  SQL, BUFFER_SIZE, &stmt, &tail);
 
-
-    sqlite3_exec(bamdb->get_conn(), "BEGIN TRANSACTION", NULL, NULL, &sErrMsg);
+    sqlite3_exec(bamdb->get_conn(), "BEGIN TRANSACTION", NULL, NULL, &err_smg);
 
     while ((result = sam_itr_next(bamdb->get_bam(), bam_itr, b)) >= 0) {
+        //bamdb->increment_read();
+        // FIX THIS
+        // if (bamdb->get_read() % progress_size == 0) {
+        //      cout << (float)bamdb->get_read() / bamdb->get_mapped() * 100  << "%..." << flush;
+        // }
 
-        //if (i == 10) return 0;
-        // get cigar
         if (bad_cigar(b)) continue;
 
-        //const char tag[2] = {'N', 'H'};
-        //filter_bad_reads(b, tag);
+        if (filter_multi_reads(b)) continue;
 
         split_qname(b, &record);
 
@@ -305,6 +303,7 @@ int fill_db(BamDB* bamdb) {
         }
 
         record.bc = get_sequence(b, 5, 10, bamdb->get_barcodes());
+
         record.umi = get_sequence(b, 0, 4);
 
         try {
@@ -312,16 +311,10 @@ int fill_db(BamDB* bamdb) {
         } catch ( exception& e ) {
             exit(1);
         }
-
-        //record.reset_qname();
-        ++i;
-        // if (i == chunk_size) {
-        //     commit
-        // }
     }
 
-    sqlite3_exec(bamdb->get_conn(), "END TRANSACTION", NULL, NULL, &sErrMsg);
-    sqlite3_close(bamdb->get_conn());
+    sqlite3_exec(bamdb->get_conn(), "END TRANSACTION", NULL, NULL, &err_msg);
+
 
     return 0;
 }

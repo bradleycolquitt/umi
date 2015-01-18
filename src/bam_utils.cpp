@@ -24,31 +24,30 @@ uint64_t count_bam_records(hts_idx_t* idx, bam_hdr_t* header) {
 }
 
 vector<int> seq2int(string& s) {
-string::iterator it = s.begin();
-string::iterator it_end = s.end();
-vector<int> out_vec(s.size());
-for (int i=0; i < s.size() ; ++i) {
-//std::cout << s[i] << " ";
-switch ( s[i] )
-{
-case 'A':
-    out_vec[i] = 1;
-    break;
-case 'C':
-    out_vec[i] = 2;
-    break;
-case 'G':
-    out_vec[i] = 4;
-    break;
-case 'T':
-    out_vec[i] = 8;
-    break;
-case 'N':
-    out_vec[i] = 15;
-    break;
+    string::iterator it = s.begin();
+    string::iterator it_end = s.end();
+    vector<int> out_vec(s.size());
+    for (int i=0; i < s.size() ; ++i) {
 
+    switch ( s[i] )
+    {
+    case 'A':
+        out_vec[i] = 1;
+        break;
+    case 'C':
+        out_vec[i] = 2;
+        break;
+    case 'G':
+        out_vec[i] = 4;
+        break;
+    case 'T':
+        out_vec[i] = 8;
+        break;
+    case 'N':
+        out_vec[i] = 15;
+        break;
+    }
 }
-}
-    //cout << endl;
+
     return out_vec;
 }

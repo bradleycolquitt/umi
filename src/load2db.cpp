@@ -41,6 +41,7 @@ int main(int argc, char** argv) {
 
     create_table(bamdb);
     fill_db(bamdb);
+    bamdb->create_reftable();
 
     return 0;
 }
