@@ -50,8 +50,8 @@ struct dbRecord {
     char cluster[BUFFER_SIZE];
 
     int tid;
-    uint32_t pos_left;
-    uint32_t pos_right;
+    uint32_t pos_head;
+    uint32_t pos_tail;
     bool strand;
     int bc;
     int umi;

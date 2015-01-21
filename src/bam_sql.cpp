@@ -85,8 +85,8 @@ int create_table(BamDB* bamdb) {
                                                            flowcell text,            \
                                                            cluster text,             \
                                                            tid int,                  \
-                                                           lpos int,                 \
-                                                           rpos int,                 \
+                                                           hpos int,                 \
+                                                           tpos int,                 \
                                                            strand int,               \
                                                            bc int,                   \
                                                            umi int);";
@@ -101,14 +101,19 @@ int create_table(BamDB* bamdb) {
     return 0;
 }
 
+int create_index(BamDB* bamdb) {
+    char* err_msg = 0;
+    sqlite3_exec(bamdb->get_conn(), "CREATE INDEX tid_pos ON (tid, hpos, tpos);", NULL, NULL, &err_msg);
+}
+
 int insert_to_db(BamDB* bamdb, dbRecord* record, sqlite3_stmt* stmt) {
 
     sqlite3_bind_text(stmt, 1, record->instrument, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, record->flowcell, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, record->cluster, -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 4, record->tid);
-    sqlite3_bind_int(stmt, 5, record->pos_left);
-    sqlite3_bind_int(stmt, 6, record->pos_right);
+    sqlite3_bind_int(stmt, 5, record->pos_head);
+    sqlite3_bind_int(stmt, 6, record->pos_tail);
     sqlite3_bind_int(stmt, 7, record->strand);
     sqlite3_bind_int(stmt, 8, record->bc);
     sqlite3_bind_int(stmt, 9, record->umi);
@@ -273,7 +278,7 @@ int fill_db_tid(BamDB* bamdb, int tid, hts_itr_t* bam_itr) {
     char SQL[BUFFER_SIZE];
 
 
-    sprintf(SQL, "INSERT INTO align VALUES (@IN, @FL, @CL, @TID, @LPOS, @RPOS, @STR, @BC, @UMI);");
+    sprintf(SQL, "INSERT INTO align VALUES (@IN, @FL, @CL, @TID, @HPOS, @TPOS, @STR, @BC, @UMI);");
     sqlite3_prepare_v2(bamdb->get_conn(),  SQL, BUFFER_SIZE, &stmt, &tail);
 
     sqlite3_exec(bamdb->get_conn(), "BEGIN TRANSACTION", NULL, NULL, &err_msg);
@@ -298,16 +303,19 @@ int fill_db_tid(BamDB* bamdb, int tid, hts_itr_t* bam_itr) {
         }
 
         split_qname(b, &record);
-        //cout << b->core.pos << " " << bam_endpos(b) << endl;
+
         if (bam_is_rev(b)) {
+            record.pos_tail = b->core.pos + 1;
+            record.pos_head = bam_endpos(b);
             record.strand = true;
         } else {
+            record.pos_head = b->core.pos + 1;
+            record.pos_tail = bam_endpos(b);
             record.strand = false;
         }
 
         // +1 offset for comparison with 1-based indexing
-        record.pos_left = b->core.pos + 1;
-        record.pos_right = bam_endpos(b);
+
 
         record.bc = get_sequence(b, 5, 10, bamdb->get_barcodes());
 
