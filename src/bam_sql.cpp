@@ -9,7 +9,7 @@
 
 using namespace std;
 
-BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname)
+BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_start, int umi_end)
     : bam_fname(bam_fname)
     , dest_fname(dest_fname)
     {
@@ -38,10 +38,16 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
         } catch (exception &e) {
             cout << e.what() << endl;
         }
+        sequence_pos.push_back(umi_start);
+        sequence_pos.push_back(umi_end);
+        sequence_pos.push_back(umi_end+1);
+
+        size_t bc_length = barcodes[0].size();
+        sequence_pos.push_back(sequence_pos[2] + bc_length);
 
     }
 
-// Read in barcodes file and load sequences intobarcodes vector
+// Read in barcodes file and load sequences into barcodes vector
 void BamDB::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
     ifstream bc_s(fname, ifstream::in);
 
@@ -103,7 +109,8 @@ int create_table(BamDB* bamdb) {
 
 int create_index(BamDB* bamdb) {
     char* err_msg = 0;
-    sqlite3_exec(bamdb->get_conn(), "CREATE INDEX tid_pos ON (tid, hpos, tpos);", NULL, NULL, &err_msg);
+    sqlite3_exec(bamdb->get_conn(), "CREATE INDEX name ON reference(name);", NULL, NULL, &err_msg);
+    sqlite3_exec(bamdb->get_conn(), "CREATE INDEX bc_hpos ON align(bc, tid, hpos);", NULL, NULL, &err_msg);
 }
 
 int insert_to_db(BamDB* bamdb, dbRecord* record, sqlite3_stmt* stmt) {
@@ -277,6 +284,7 @@ int fill_db_tid(BamDB* bamdb, int tid, hts_itr_t* bam_itr) {
     const char* tail = 0;
     char SQL[BUFFER_SIZE];
 
+    vector<int> sequence_pos = bamdb->get_sequence_pos();
 
     sprintf(SQL, "INSERT INTO align VALUES (@IN, @FL, @CL, @TID, @HPOS, @TPOS, @STR, @BC, @UMI);");
     sqlite3_prepare_v2(bamdb->get_conn(),  SQL, BUFFER_SIZE, &stmt, &tail);
@@ -313,13 +321,13 @@ int fill_db_tid(BamDB* bamdb, int tid, hts_itr_t* bam_itr) {
             record.pos_tail = bam_endpos(b);
             record.strand = false;
         }
-
         // +1 offset for comparison with 1-based indexing
 
+        //record.umi = get_sequence(b, 0, 4);
+        record.umi = get_sequence(b, sequence_pos[0], sequence_pos[1]);
 
-        record.bc = get_sequence(b, 5, 10, bamdb->get_barcodes());
-
-        record.umi = get_sequence(b, 0, 4);
+        //record.bc = get_sequence(b, 5, 10, bamdb->get_barcodes());
+        record.bc = get_sequence(b, sequence_pos[2], sequence_pos[3], bamdb->get_barcodes());
 
         try {
             insert_to_db(bamdb, &record, stmt);

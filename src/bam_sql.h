@@ -25,14 +25,16 @@ class BamDB {
             const char* db_fname;
             sqlite3* conn;
             vector<vector<int> > barcodes;
+            vector<int> sequence_pos;
 
     public:
-            BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname);
+            BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_start, int umi_end);
             void set_barcodes(const char* fname, vector<vector<int> >& vec_p);
             void create_reftable();
             void increment_read() { ++total_read;}
             //void update_percent() { percent += 5; }
 
+            vector<int> get_sequence_pos() { return sequence_pos; }
             samFile* get_bam() { return bam; }
             bam_hdr_t* get_header() { return header; }
             hts_idx_t* get_idx() { return idx; }
@@ -59,7 +61,7 @@ struct dbRecord {
 };
 
 int create_table(BamDB* bamdb);
-
+int create_index(BamDB* bamdb);
 int fill_db(BamDB* bamdb);
 int fill_db_tid(BamDB* bamdb, int tid, hts_itr_t* bam_itr);
 
