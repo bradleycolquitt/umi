@@ -97,10 +97,6 @@ pos_select_full = '''
         align.tid, align.position, align.bc, align.umi
 '''
 
-def result_generator(results):
-        for result in results:
-            yield (result[0], result[1])
-
 def execute_join(db, thresh, statement):
     conn = sqlite3.connect(db)
     conn.row_factory = sqlite3.Row
@@ -110,11 +106,11 @@ def execute_join(db, thresh, statement):
     out = db + "_hotspots"
     if statement == "summary":
         pos_select2 = pos_select_summary
-        header = "\t".join(["bc", "chrom", "position", "count"]) + "\n"
+        header = "\t".join(["bc", "chrom", "position", "count", "group"]) + "\n"
         out = out + "_summary.txt"
     elif statement == "full":
         pos_select2 = pos_select_full
-        header = "\t".join(["bc", "chrom", "position", "umi", "umi_count"]) + "\n"
+        header = "\t".join(["bc", "chrom", "position", "umi", "umi_count", "group"]) + "\n"
         out = out + "_full.txt"
 
     dec = "y"
@@ -130,12 +126,20 @@ def execute_join(db, thresh, statement):
         out = open(out, "w")
         out.write(header)
 
+        max_dist = 100
+        curr_value = 0
+        group = 0
         try:
             results = c.execute(pos_select, (thresh,))
             for result in results.fetchall():
                 results2 = c.execute(pos_select2, (result[0], result[1]))
                 for res in results2.fetchall():
-                    out.write("\t".join(map(str, res))+ "\n")
+
+                    if (res[2] - curr_value) > max_dist:
+                        group += 1
+                    curr_value = res[2]
+
+                    out.write("\t".join(map(str, res) + [str(group)])+ "\n")
         except sqlite3.OperationalError:
             print tb.print_exc()
             sys.exit()

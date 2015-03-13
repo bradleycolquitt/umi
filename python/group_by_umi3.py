@@ -21,10 +21,14 @@ import pdb
 import argparse
 import traceback as tb
 
+from sql_utils import printExplainQueryPlan
+
+debug = False
 statement_summary = '''SELECT
                    align.bc,
                    anno.genes.chrom,
-                   align.position,
+                   align.hpos,
+                   align.tpos,
                    count(align.umi) as total_umi,
                    count(case when align.strand = anno.genes.strand then align.umi end)
                        as total_umi_same_strand,
@@ -36,10 +40,14 @@ statement_summary = '''SELECT
                    align JOIN reference ON align.tid = reference.tid
                         JOIN anno.genes
                             ON reference.name = anno.genes.chrom
-                                AND align.position BETWEEN anno.genes.start AND anno.genes.end
                                 AND anno.genes.build=:build
+                                AND
+                                (
+                                align.hpos BETWEEN anno.genes.start AND anno.genes.end OR
+                                align.tpos BETWEEN anno.genes.start AND anno.genes.end
+                                )
                GROUP BY
-                   align.bc, align.tid, align.position
+                   align.bc, align.tid, align.hpos
 
          '''
 
@@ -59,12 +67,12 @@ statement_full = '''SELECT
                    align JOIN reference ON align.tid = reference.tid
                         JOIN anno.genes
                             ON reference.name = anno.genes.chrom
-                                AND anno.genes.build=:build
-                                AND
-                                    (
-                                    align.hpos BETWEEN anno.genes.start AND anno.genes.end OR
-                                    align.tpos BETWEEN anno.genes.start AND anno.genes.end
-                                    )
+                               AND anno.genes.build=:build
+               WHERE
+                   (
+                   align.hpos BETWEEN anno.genes.start AND anno.genes.end OR
+                   align.tpos BETWEEN anno.genes.start AND anno.genes.end
+                   )
 
                GROUP BY
                    align.bc, align.umi, align.tid, align.hpos
@@ -86,7 +94,7 @@ def execute_join(db, build, statement):
     out = "_".join([db, build])
     if statement == "summary":
         statement = statement_summary
-        header = "\t".join(["bc", "chrom", "position",
+        header = "\t".join(["bc", "chrom", "head_pos", "tail_pos",
                          "total_umi", "total_umi_same_strand", "unique_umi",
                          "gene_id", "transcript_id", "element"]) + "\n"
         out = out + "_summary.txt"
@@ -103,6 +111,11 @@ def execute_join(db, build, statement):
         if not (dec == "y" or dec == "n"):
             print "Invalid input. [y/n]"
             sys.exit()
+
+    # Print out plan
+    if (debug):
+        printExplainQueryPlan(conn, statement, {"build":build})
+
     # Execute main join query
     if dec == "y":
         try:
