@@ -26,17 +26,18 @@ int main(int argc, char** argv) {
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help,h", "produce help message")
-        ("umi-positions,u", po::value<vector<int> >()->multitoken(), "start and end positions of UMI sequence")
+        ("umi-length,u", po::value<int>()->default_value(8), "length of UMI sequence")
         ("bc-min-qual,q", po::value<int>()->default_value(20), "minimum quality score for barcode")
-        ("bam", po::value<string>()->required(), "indexed bam")
-        ("barcode", po::value<string>()->required(), "prefix for barcode file")
-        ("db", po::value<string>()->required(), "output database")
+//        ("bam", po::value<string>()->required(), "indexed bam")
+//        ("barcode", po::value<string>()->required(), "prefix for barcode file")
+//        ("db", po::value<string>()->required(), "output database")
     ;
 
     po::positional_options_description positionalOptions;
-    positionalOptions.add("bam", 1);
     positionalOptions.add("barcode", 1);
     positionalOptions.add("db", 1);
+    positionalOptions.add("bam", 1);
+
 
     po::variables_map vm;
 
@@ -56,6 +57,11 @@ int main(int argc, char** argv) {
                   << endl << endl
                   << "\t[UMI][Barcode][Variable number of G][Sequence]"
                   << endl << endl;
+        cout << "Usage: load2db [options] barcode_prefix db bam" << endl << endl
+             << "Required options:" << endl
+             << "  barcode_prefix : prefix of file found in barcode directory" << endl
+             << "  db : output database" << endl
+             << "  bam : BAM to be parsed" << endl;
         cout << desc << endl;
         return SUCCESS;
       }
@@ -78,16 +84,16 @@ int main(int argc, char** argv) {
     const char* dest_fname = convert_to_cstr(vm["db"].as<string>());
     const char* barcodes = convert_to_cstr(vm["barcode"].as<string>());
 
-    vector<int> umi_pos;
-    if ( ! vm.count("umi-positions") ) {
-    umi_pos.push_back(0);
-    umi_pos.push_back(4);
-    } else {
-    umi_pos = vm["umi-positions"].as<vector<int> >();
-    }
+    int umi_length = vm["umi-length"].as<int>();
+    // if ( ! vm.count("umi-positions") ) {
+    // umi_pos.push_back(0);
+    // umi_pos.push_back(4);
+    // } else {
+    // umi_pos = vm["umi-positions"].as<vector<int> >();
+    // }
 
     int bc_min_qual = vm["bc-min-qual"].as<int>();
-    BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_pos[0], umi_pos[1], bc_min_qual);
+    BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_length, bc_min_qual);
 
     create_table(bamdb);
     fill_db(bamdb);

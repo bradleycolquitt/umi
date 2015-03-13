@@ -9,7 +9,7 @@
 
 using namespace std;
 
-BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_start, int umi_end, int bc_min_qual)
+BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_length, int bc_min_qual)
     : bam_fname(bam_fname)
     , dest_fname(dest_fname)
     , bc_min_qual(bc_min_qual)
@@ -40,9 +40,9 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
             cout << e.what() << endl;
         }
 
-        sequence_pos.push_back(umi_start);
-        sequence_pos.push_back(umi_end);
-        sequence_pos.push_back(umi_end+1);
+        sequence_pos.push_back(0);
+        sequence_pos.push_back(umi_length-1);
+        sequence_pos.push_back(umi_length);
 
         size_t bc_length = barcodes[0].size();
         sequence_pos.push_back(sequence_pos[2] + bc_length);

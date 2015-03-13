@@ -31,7 +31,7 @@ class BamDB {
             int bc_min_qual;
 
     public:
-            BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_start, int umi_end, int bc_min_qual);
+            BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_length, int bc_min_qual);
             void set_barcodes(const char* fname, vector<vector<int> >& vec_p);
             void create_reftable();
             void increment_read() { ++total_read;}
