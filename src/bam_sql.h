@@ -26,6 +26,7 @@ class BamDB {
             sqlite3* conn;
             vector<vector<int> > barcodes;
             vector<int> sequence_pos;
+            vector<int> bc_offsets;
 
             int bc_min_qual;
 
@@ -44,9 +45,11 @@ class BamDB {
             uint64_t get_read() { return total_read; }
             //int get_percent() { return percent_complete; }
             vector<vector<int> >* get_barcodes() { return &barcodes; }
+            vector<int>* get_bc_offsets() { return &bc_offsets; }
             int get_rlen(int tid) { return header->target_len[tid]; }
             sqlite3* get_conn() {return conn;}
             int get_bc_min_qual() { return bc_min_qual; }
+
 };
 
 struct dbRecord {

@@ -1,6 +1,0 @@
-#ifndef BAM_UTIL_H
-#define BAM_UTIL_H
-
-int count_bam_records(hts_idx_t* idx);
-
-#endif
