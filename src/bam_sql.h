@@ -27,8 +27,10 @@ class BamDB {
             vector<vector<int> > barcodes;
             vector<int> sequence_pos;
 
+            int bc_min_qual;
+
     public:
-            BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_start, int umi_end);
+            BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_start, int umi_end, int bc_min_qual);
             void set_barcodes(const char* fname, vector<vector<int> >& vec_p);
             void create_reftable();
             void increment_read() { ++total_read;}
@@ -44,6 +46,7 @@ class BamDB {
             vector<vector<int> >* get_barcodes() { return &barcodes; }
             int get_rlen(int tid) { return header->target_len[tid]; }
             sqlite3* get_conn() {return conn;}
+            int get_bc_min_qual() { return bc_min_qual; }
 };
 
 struct dbRecord {

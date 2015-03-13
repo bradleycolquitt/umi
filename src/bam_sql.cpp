@@ -9,9 +9,10 @@
 
 using namespace std;
 
-BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_start, int umi_end)
+BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_start, int umi_end, int bc_min_qual)
     : bam_fname(bam_fname)
     , dest_fname(dest_fname)
+    , bc_min_qual(bc_min_qual)
     {
         bam = sam_open(bam_fname, "rb");
         header = sam_hdr_read(bam);
@@ -38,6 +39,7 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
         } catch (exception &e) {
             cout << e.what() << endl;
         }
+
         sequence_pos.push_back(umi_start);
         sequence_pos.push_back(umi_end);
         sequence_pos.push_back(umi_end+1);
@@ -208,11 +210,11 @@ int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, int start, int
 }
 
 //intended for barcodes
-int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes) {
+int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes, int min_qual) {
     uint8_t* seq = bam_get_seq(b);
     uint8_t* qual = bam_get_qual(b);
 
-    // skip read if barcode quality less than 20
+    // skip read if barcode quality less than min_qual
     int min = 100000;
     int qual_int;
     for (int j = start; j <= end ; ++j) {
@@ -220,7 +222,7 @@ int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes) 
         if (qual_int < min) min = qual_int;
         qual += 1;
     }
-    if (min < 20) return -1;
+    if (min < min_qual) return -1;
 
     // returns index of perfect match or one mismatch
     return compare_barcode(seq, barcodes, start, end);
@@ -242,12 +244,15 @@ int get_sequence(bam1_t* b, int start, int end) {
         if (int(*qual) < min) min = int(*qual);
         qual += 1;
     }
+
     if (min < 20) {
         return 0;
     } else {
-        vector<int> umi_int(5);
-        for (int j = start; j <= end; ++j) {
-             umi_int[j] = (int)bam_seqi(seq, j);
+
+        vector<int> umi_int(end - start + 1);
+
+        for (int j = 0; j < umi_int.size(); ++j) {
+             umi_int[j] = (int)bam_seqi(seq, j + start);
         }
         return accumulate(umi_int.begin(), umi_int.end(), 0, ShiftAdd);
     }
@@ -285,6 +290,10 @@ int fill_db_tid(BamDB* bamdb, int tid, hts_itr_t* bam_itr) {
     char SQL[BUFFER_SIZE];
 
     vector<int> sequence_pos = bamdb->get_sequence_pos();
+    int umi_start = sequence_pos[0];
+    int umi_end = sequence_pos[1];
+    int bc_start = sequence_pos[2];
+    int bc_end = sequence_pos[3];
 
     sprintf(SQL, "INSERT INTO align VALUES (@IN, @FL, @CL, @TID, @HPOS, @TPOS, @STR, @BC, @UMI);");
     sqlite3_prepare_v2(bamdb->get_conn(),  SQL, BUFFER_SIZE, &stmt, &tail);
@@ -325,9 +334,11 @@ int fill_db_tid(BamDB* bamdb, int tid, hts_itr_t* bam_itr) {
 
         //record.umi = get_sequence(b, 0, 4);
         record.umi = get_sequence(b, sequence_pos[0], sequence_pos[1]);
+        //record.umi = get_sequence(b, umi_start, umi_end);
 
-        //record.bc = get_sequence(b, 5, 10, bamdb->get_barcodes());
-        record.bc = get_sequence(b, sequence_pos[2], sequence_pos[3], bamdb->get_barcodes());
+
+        record.bc = get_sequence(b, sequence_pos[2], sequence_pos[3], bamdb->get_barcodes(), bamdb->get_bc_min_qual());
+
 
         try {
             insert_to_db(bamdb, &record, stmt);

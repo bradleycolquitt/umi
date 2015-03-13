@@ -8,6 +8,14 @@
 using namespace std;
 namespace po = boost::program_options;
 
+namespace
+{
+const size_t ERROR_IN_COMMAND_LINE = 1;
+const size_t SUCCESS = 0;
+const size_t ERROR_UNHANDLED_EXCEPTION = 2;
+
+} // namespace
+
 const char* convert_to_cstr(const string & s)
 {
     return s.c_str();
@@ -18,7 +26,8 @@ int main(int argc, char** argv) {
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help,h", "produce help message")
-        ("umi_positions,u", po::value<vector<int> >()->multitoken(), "start and end positions of UMI sequence")
+        ("umi-positions,u", po::value<vector<int> >()->multitoken(), "start and end positions of UMI sequence")
+        ("bc-min-qual,q", po::value<int>()->default_value(20), "minimum quality score for barcode")
         ("bam", po::value<string>()->required(), "indexed bam")
         ("barcode", po::value<string>()->required(), "prefix for barcode file")
         ("db", po::value<string>()->required(), "output database")
@@ -30,30 +39,55 @@ int main(int argc, char** argv) {
     positionalOptions.add("db", 1);
 
     po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv).options(desc)
-                .positional(positionalOptions).run(),
-                          vm);
 
-    if (vm.count("help")) {
-        cout << desc << "\n";
-        //return 1;
+    try
+    {
+      po::store(po::command_line_parser(argc, argv).options(desc)
+                  .positional(positionalOptions).run(),
+                vm); // throws on error
+
+      /** --help option
+       */
+      if ( vm.count("help")  )
+      {
+        std::cout << endl
+                  << "Parses and loads reads from a BAM file to an SQLite3 DB." << endl
+                  << "Expects following read structure: "
+                  << endl << endl
+                  << "\t[UMI][Barcode][Variable number of G][Sequence]"
+                  << endl << endl;
+        cout << desc << endl;
+        return SUCCESS;
+      }
+
+      po::notify(vm); // throws on error, so do after help in case
+                      // there are any problems
     }
-
-    po::notify(vm);
-
+    catch(boost::program_options::required_option& e)
+    {
+      std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
+      return ERROR_IN_COMMAND_LINE;
+    }
+    catch(boost::program_options::error& e)
+    {
+      std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
+      return ERROR_IN_COMMAND_LINE;
+    }
 
     const char* bam_fname = convert_to_cstr(vm["bam"].as<string>());
     const char* dest_fname = convert_to_cstr(vm["db"].as<string>());
     const char* barcodes = convert_to_cstr(vm["barcode"].as<string>());
 
     vector<int> umi_pos;
-    if ( ! vm.count("umi_positions") ) {
-        umi_pos.push_back(0);
-        umi_pos.push_back(4);
+    if ( ! vm.count("umi-positions") ) {
+    umi_pos.push_back(0);
+    umi_pos.push_back(4);
     } else {
-        umi_pos = vm["umi_positions"].as<vector<int> >();
+    umi_pos = vm["umi-positions"].as<vector<int> >();
     }
-    BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_pos[0], umi_pos[1]);
+
+    int bc_min_qual = vm["bc-min-qual"].as<int>();
+    BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_pos[0], umi_pos[1], bc_min_qual);
 
     create_table(bamdb);
     fill_db(bamdb);

@@ -10,6 +10,8 @@ using namespace std;
 
 int main(int argc, char** argv) {
     const char* bam_fname = argv[1];
+    int umi_start = atoi(argv[2]);
+    int umi_end = atoi(argv[3]);
     const char* dest_fname = "test.db";
 
     remove(dest_fname);
@@ -18,7 +20,7 @@ int main(int argc, char** argv) {
     bam_hdr_t* header = sam_hdr_read(bam);
     hts_idx_t* idx = bam_index_load(bam_fname);
     cout << count_bam_records(idx, header) << endl;
-    BamDB* bamdb = new BamDB(bam_fname, dest_fname, "bc8");
+    BamDB* bamdb = new BamDB(bam_fname, dest_fname, "bc8", umi_start, umi_end);
     ProfilerStart("/home/brad/src/umi/profiling/test_dna3_cpu.prof");
     //HeapProfilerStart("/home/brad/src/umi/profiling/test-heap");
     create_table(bamdb);
