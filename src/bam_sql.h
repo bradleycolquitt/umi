@@ -57,8 +57,8 @@ struct dbRecord {
     char flowcell[BUFFER_SIZE];
     char cluster[BUFFER_SIZE];
 
-    int tid;
-    uint32_t pos_head;
+    int tid = 0;
+    uint32_t pos_head = 0;
     uint32_t pos_tail;
     bool strand;
     int bc;

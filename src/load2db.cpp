@@ -28,16 +28,15 @@ int main(int argc, char** argv) {
         ("help,h", "produce help message")
         ("umi-length,u", po::value<int>()->default_value(8), "length of UMI sequence")
         ("bc-min-qual,q", po::value<int>()->default_value(20), "minimum quality score for barcode")
-//        ("bam", po::value<string>()->required(), "indexed bam")
-//        ("barcode", po::value<string>()->required(), "prefix for barcode file")
-//        ("db", po::value<string>()->required(), "output database")
+        ("barcode", po::value<string>(), "prefix of barcode file")
+        ("db", po::value<string>())
+        ("bam", po::value<string>())
     ;
 
     po::positional_options_description positionalOptions;
     positionalOptions.add("barcode", 1);
     positionalOptions.add("db", 1);
     positionalOptions.add("bam", 1);
-
 
     po::variables_map vm;
 
@@ -71,18 +70,19 @@ int main(int argc, char** argv) {
     }
     catch(boost::program_options::required_option& e)
     {
-      std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
+      std::cerr << "ERROR: " << e.what() << ", required." << std::endl << std::endl;
       return ERROR_IN_COMMAND_LINE;
     }
     catch(boost::program_options::error& e)
     {
-      std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
+      std::cerr << "ERROR: " << e.what() << ", optional." << std::endl << std::endl;
       return ERROR_IN_COMMAND_LINE;
     }
 
     const char* bam_fname = convert_to_cstr(vm["bam"].as<string>());
     const char* dest_fname = convert_to_cstr(vm["db"].as<string>());
     const char* barcodes = convert_to_cstr(vm["barcode"].as<string>());
+
 
     int umi_length = vm["umi-length"].as<int>();
     // if ( ! vm.count("umi-positions") ) {

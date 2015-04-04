@@ -5,6 +5,7 @@
 #include <string_utils.h>
 #include <boost/regex.hpp>
 #include <gperftools/profiler.h>
+//#include <seqan/sequence.h>
 //#define DEBUG
 
 using namespace std;
@@ -19,7 +20,7 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
         idx = bam_index_load(bam_fname);
         total_mapped = count_bam_records(idx, header);
 
-        // // possibly add in multithreading flags
+        // possibly add in multithreading flags
         int sqlite_code = sqlite3_open(dest_fname, &conn);
         if(sqlite_code){
             fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(conn));
@@ -116,9 +117,10 @@ int create_index(BamDB* bamdb) {
     char* err_msg = 0;
     sqlite3_exec(bamdb->get_conn(), "CREATE INDEX name ON reference(name);", NULL, NULL, &err_msg);
     sqlite3_exec(bamdb->get_conn(), "CREATE INDEX bc_hpos ON align(bc, tid, hpos);", NULL, NULL, &err_msg);
+    return 0;
 }
 
-int insert_to_db(BamDB* bamdb, dbRecord* record, sqlite3_stmt* stmt) {
+int insert_to_db(dbRecord* record, sqlite3_stmt* stmt) {
 
     sqlite3_bind_text(stmt, 1, record->instrument, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, record->flowcell, -1, SQLITE_TRANSIENT);
@@ -236,7 +238,7 @@ int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes, 
     int min = 100000;
     int qual_int;
     for (int j = start; j <= end ; ++j) {
-        int qual_int = int(*qual);
+        qual_int = int(*qual);
         if (qual_int < min) min = qual_int;
         qual += 1;
     }
@@ -267,7 +269,7 @@ int get_sequence(bam1_t* b, int start, int end, int used_offset) {
     }
 
     int min = 100000;
-    int qual_int;
+    //int qual_int;
     for (int j = start; j <= end ; ++j) {
         if (int(*qual) < min) min = int(*qual);
         qual += 1;
@@ -277,7 +279,7 @@ int get_sequence(bam1_t* b, int start, int end, int used_offset) {
         return 0;
     } else {
         vector<int> umi_int(end - start + 1 + d, 0);
-        for (int j = 0; j < umi_int.size(); ++j) {
+        for (unsigned int j = 0; j < umi_int.size(); ++j) {
              umi_int[j + d] = (int)bam_seqi(seq, j + start);
         }
 
@@ -295,7 +297,6 @@ int get_sequence(bam1_t* b, int start, int end, int used_offset) {
 }
 
 int fill_db(BamDB* bamdb) {
-    char ** names = bamdb->get_header()->target_name;
     char* err_msg = 0;
 
     //turn off synchronous writing to disk for increased insertion speed
@@ -304,9 +305,9 @@ int fill_db(BamDB* bamdb) {
     hts_itr_t* bam_itr;
     for (int tid = 0; tid < bamdb->get_header()->n_targets; ++tid) {
         bam_itr = bam_itr_queryi(bamdb->get_idx(), tid, 0, bamdb->get_rlen(tid));
+
         fill_db_tid(bamdb, tid, bam_itr);
     }
-
     sqlite3_close(bamdb->get_conn());
     return 0;
 
@@ -326,10 +327,6 @@ int fill_db_tid(BamDB* bamdb, int tid, hts_itr_t* bam_itr) {
     char SQL[BUFFER_SIZE];
 
     vector<int> sequence_pos = bamdb->get_sequence_pos();
-    int umi_start = sequence_pos[0];
-    int umi_end = sequence_pos[1];
-    int bc_start = sequence_pos[2];
-    int bc_end = sequence_pos[3];
 
     sprintf(SQL, "INSERT INTO align VALUES (@IN, @FL, @CL, @TID, @HPOS, @TPOS, @STR, @BC, @UMI);");
     sqlite3_prepare_v2(bamdb->get_conn(),  SQL, BUFFER_SIZE, &stmt, &tail);
@@ -369,28 +366,24 @@ int fill_db_tid(BamDB* bamdb, int tid, hts_itr_t* bam_itr) {
         // +1 offset for comparison with 1-based indexing
 
         int used_offset;
+        // extract barcode
         record.bc = get_sequence(b, sequence_pos[2], sequence_pos[3], \
                                     bamdb->get_barcodes(), \
                                     bamdb->get_bc_offsets(), \
                                     bamdb->get_bc_min_qual(), \
                                     used_offset);
 
+        // extract umi
         record.umi = get_sequence(b, sequence_pos[0], sequence_pos[1], used_offset);
 
-
-
-
-
-
         try {
-            insert_to_db(bamdb, &record, stmt);
+            insert_to_db(&record, stmt);
         } catch ( exception& e ) {
             exit(1);
         }
     }
 
     sqlite3_exec(bamdb->get_conn(), "END TRANSACTION", NULL, NULL, &err_msg);
-
 
     return 0;
 }
