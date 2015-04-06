@@ -1,0 +1,5 @@
+* Some prefix based hash search of barcodes, possibly using seqan library
+** although current algo might be fine 
+* Include read2
+** In database
+** In annotation join
