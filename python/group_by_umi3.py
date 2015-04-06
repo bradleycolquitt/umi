@@ -24,6 +24,7 @@ import traceback as tb
 from sql_utils import printExplainQueryPlan
 
 debug = False
+
 statement_summary = '''SELECT
                    align.bc,
                    anno.genes.chrom,
@@ -79,12 +80,13 @@ statement_full = '''SELECT
 
          '''
 
-def execute_join(db, build, statement):
+def execute_join(db, build, statement, anno):
     conn = sqlite3.connect(db)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
-    c.execute("ATTACH DATABASE '/media/data/db/anno.db' AS anno")
+    anno = "/media/data/db/" + anno + ".db"
+    c.execute("ATTACH DATABASE '{0}' AS anno".format(anno))
 
     c.execute("SELECT EXISTS(SELECT 1 FROM genes WHERE build=:build)", {"build":build})
     res = c.fetchone()[0]
@@ -137,9 +139,10 @@ def main(argv):
     parser.add_argument(dest="db", help="Database containing umi, bc, and alignment data. As output by load_to_db.py")
     parser.add_argument(dest="build", help="Build from which to select annotation db elements.")
     parser.add_argument("-s", "--statement", dest="statement", choices=['full', 'summary'], default='summary' )
+    parser.add_argument("-a", "--anno", default="anno", help="Annotation database prefix")
     args = parser.parse_args()
 
-    execute_join(args.db, args.build, args.statement)
+    execute_join(args.db, args.build, args.statement, args.anno)
 
 if __name__ == "__main__":
     main(sys.argv)
