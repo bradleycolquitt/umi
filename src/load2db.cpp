@@ -13,7 +13,6 @@ namespace
 const size_t ERROR_IN_COMMAND_LINE = 1;
 const size_t SUCCESS = 0;
 const size_t ERROR_UNHANDLED_EXCEPTION = 2;
-
 } // namespace
 
 const char* convert_to_cstr(const string & s)
@@ -22,12 +21,12 @@ const char* convert_to_cstr(const string & s)
 }
 
 int main(int argc, char** argv) {
-
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help,h", "produce help message")
         ("umi-length,u", po::value<int>()->default_value(8), "length of UMI sequence")
         ("bc-min-qual,q", po::value<int>()->default_value(20), "minimum quality score for barcode")
+        ("paired-end", po::value<bool>()->default_value(false), "Record matepair information")
         ("barcode", po::value<string>(), "prefix of barcode file")
         ("db", po::value<string>())
         ("bam", po::value<string>())
@@ -93,7 +92,8 @@ int main(int argc, char** argv) {
     // }
 
     int bc_min_qual = vm["bc-min-qual"].as<int>();
-    BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_length, bc_min_qual);
+    bool paired_end = vm["paired-end"].as<bool>();
+    BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_length, bc_min_qual, paired_end);
 
     create_table(bamdb);
     fill_db(bamdb);
