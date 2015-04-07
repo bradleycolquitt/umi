@@ -9,7 +9,7 @@
 using namespace std;
 
 int main() {
-    const char* bam_fname = "/home/brad/src/umi/test_files/load2db_test.bam";
+    const char* bam_fname = "/home/brad/src/umi/test_files/load2db_test_qsort.bam";
     const char* db_fname = "/home/brad/src/umi/test_files/test_pe.db";
     remove(db_fname);
 
@@ -30,7 +30,7 @@ int main() {
     fill_db(bamdb);
     bamdb->create_reftable();
     //ProfilerStop();
-    //delete bamdb;
+    delete bamdb;
     //HeapProfilerStop();
     return 0;
 }

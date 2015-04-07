@@ -5,7 +5,6 @@
 #include <string_utils.h>
 #include <boost/regex.hpp>
 #include <gperftools/profiler.h>
-//#define DEBUG
 
 using namespace std;
 
@@ -45,8 +44,11 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
         sequence_pos.push_back(umi_length-1);
         sequence_pos.push_back(umi_length);
         size_t bc_length = barcodes[0].size();
-        sequence_pos.push_back(sequence_pos[2] + bc_length);
-
+        sequence_pos.push_back(sequence_pos[2] + bc_length - 1);
+        #ifdef DEBUG
+        cerr << sequence_pos[2] << " " << sequence_pos[3] << " "
+             << bc_length << endl;
+        #endif
         // defines offsets used during barcode search
         int offsets_array[] = {0,-1,1};
         bc_offsets.assign(offsets_array, offsets_array + sizeof(offsets_array) / sizeof(int));
@@ -104,7 +106,6 @@ void BamDB::create_reftable() {
 
 }
 
-
 vector<int> dbRecordSe::insert_to_db() {
     vector<int> codes;
     //codes.resize(12);
@@ -133,28 +134,54 @@ vector<int> dbRecordPe::insert_to_db() {
 vector<int> dbRecordPe::insert_to_db(int read_num) {
     vector<int> codes;
     codes.resize(12);
+    int result = 0;
     if (read_num == 1) {
         cerr << "insert1" << endl;
-        sqlite3_bind_text(insert_stmt1, 1, instrument, -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(insert_stmt1, 2, flowcell, -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(insert_stmt1, 3, cluster, -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(insert_stmt1, 4, tid);
-        sqlite3_bind_int(insert_stmt1, 5, read_pos[0]);
-        sqlite3_bind_int(insert_stmt1, 6, read_pos[1]);
-        sqlite3_bind_int(insert_stmt1, 7, strand);
-        sqlite3_bind_int(insert_stmt1, 8, bc);
-        sqlite3_bind_int(insert_stmt1, 9, umi);
-        sqlite3_step(insert_stmt1);
-        sqlite3_clear_bindings(insert_stmt1);
-        sqlite3_reset(insert_stmt1);
+        sqlite3_bind_text(insert_stmt, 1, instrument, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(insert_stmt, 2, flowcell, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(insert_stmt, 3, cluster, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(insert_stmt, 4, tid);
+        sqlite3_bind_int(insert_stmt, 5, read_pos[0]);
+        sqlite3_bind_int(insert_stmt, 6, read_pos[1]);
+        sqlite3_bind_int(insert_stmt, 7, 0);
+        sqlite3_bind_int(insert_stmt, 8, 0);
+        sqlite3_bind_int(insert_stmt, 9, 0);
+        sqlite3_bind_int(insert_stmt, 10, strand);
+        sqlite3_bind_int(insert_stmt, 11, bc);
+        sqlite3_bind_int(insert_stmt, 12, umi);
+        #ifdef DEBUG
+        cerr << "ins:" << instrument
+             << " flow:" << flowcell
+             << " cluster:" << cluster
+             << " tid:" << tid
+             << " head:" << read_pos[0]
+             << " tail:" << read_pos[1]
+             << " strand:" << strand
+             << " bc:" << bc
+             << " umi:" << umi << endl;;
+        #endif
+        if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
+            fprintf(stderr, "Insertion error (%d): read_num=1, %s\n", result, cluster);
+        }
+        //sqlite3_clear_bindings(insert_stmt);
+        sqlite3_reset(insert_stmt);
     } else if (read_num == 2) {
-        cerr << "insert1" << endl;
-        sqlite3_bind_int(insert_stmt2, 1, read_pos[2]);
-        sqlite3_bind_int(insert_stmt2, 2, read_pos[3]);
-        sqlite3_bind_int(insert_stmt2, 3, insert);
-        sqlite3_step(insert_stmt2);
-        sqlite3_clear_bindings(insert_stmt2);
-        sqlite3_reset(insert_stmt2);
+        cerr << "insert2" << endl;
+        sqlite3_bind_text(insert_stmt, 1, "", -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(insert_stmt, 2, "", -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(insert_stmt, 3, "", -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(insert_stmt, 4, 0);
+        sqlite3_bind_int(insert_stmt, 5, 0);
+        sqlite3_bind_int(insert_stmt, 6, 0);
+        sqlite3_bind_int(insert_stmt, 7, read_pos[2]);
+        sqlite3_bind_int(insert_stmt, 8, read_pos[3]);
+        sqlite3_bind_int(insert_stmt, 9, insert);
+        sqlite3_bind_int(insert_stmt, 10, 0);
+        sqlite3_bind_int(insert_stmt, 11, 0);
+        sqlite3_bind_int(insert_stmt, 12, 0);
+        sqlite3_step(insert_stmt);
+        //sqlite3_clear_bindings(insert_stmt2);
+        sqlite3_reset(insert_stmt);
     }
     return codes;
 }
@@ -183,33 +210,22 @@ int dbRecordPe::update_record(int read_num) {
 }
 
 int BamDB::create_align_table() {
-    char* err_msg = 0;
-    int rc;
-    char statement[BUFFER_SIZE];
-    if (paired_end) {
-        sprintf(statement, "CREATE TABLE IF NOT EXISTS align (                      \
-                                                           instrument text,          \
-                                                           flowcell text,            \
-                                                           cluster text,             \
-                                                           tid int,                  \
-                                                           hpos int,                 \
-                                                           tpos int,                 \
-                                                           strand int,               \
-                                                           bc int,                   \
-                                                           umi int);");
-    } else {
-        sprintf(statement, "CREATE TABLE IF NOT EXISTS align (instrument text, flowcell text, cluster text, tid int, hpos1 int, tpos1 int, hpos2 int, tpos2 int, isize int, strand int, bc int, umi int);");
-    }
+     char* err_msg = 0;
+     int rc;
+     char statement[BUFFER_SIZE];
+     if (!paired_end) {
+        sprintf(statement, "CREATE TABLE IF NOT EXISTS align (instrument text, flowcell text, cluster text, tid int, hpos int, tpos int, strand int, bc int, umi int);");
+     } else {
+         sprintf(statement, "CREATE TABLE IF NOT EXISTS align (instrument text, flowcell text, cluster text, tid int, hpos1 int, tpos1 int, hpos2 int, tpos2 int, isize int, strand int, bc int, umi int);");
+     }
 
     rc = sqlite3_exec(conn, statement, NULL, NULL, &err_msg);
     if( rc != SQLITE_OK ){
        fprintf(stderr, "SQL error (%d) on align table creation: %s\n", rc, err_msg);
-
     } else{
        fprintf(stdout, "Align table created successfully\n");
     }
     sqlite3_free(err_msg);
-    //delete statement;
     return 0;
 }
 
@@ -279,6 +295,9 @@ int compare_barcode_local(vector<vector<int> >::iterator bc_iter, uint8_t* seq, 
     int k = 0;
     int mm = 0;
     for (int j = start; j <= end ; ++j) {
+        // #ifdef DEBUG
+        // cerr << "j:" << j << " k:" << k << endl;
+        // #endif
         if (mm > 1) return 0; // return after second mismatch
         if ((*bc_iter)[k] != bam_seqi(seq, j)) mm += 1;
         ++k;
@@ -302,6 +321,9 @@ int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, vector<int>* b
     for (; offsets_iter != offsets_iter_end; ++offsets_iter) {
         bc_iter = barcodes->begin();
         for (; bc_iter != bc_iter_end ; ++bc_iter) {
+            // #ifdef DEBUG
+            // cerr << "i:" << i << endl;
+            // #endif
             if (compare_barcode_local(bc_iter, seq, start + *offsets_iter, end + *offsets_iter)) {
                 *used_offset = *offsets_iter;
                 return i;
@@ -366,7 +388,13 @@ int get_sequence(bam1_t* b, int start, int end, int used_offset) {
         return 0;
     } else {
         vector<int> umi_int(end - start + 1 + d, 0);
-        for (unsigned int j = 0; j < umi_int.size(); ++j) {
+        // #ifdef DEBUG
+        // cerr << "d:" << d << " umi_int size:" << umi_int.size() << endl;
+        // #endif
+        for (unsigned int j = 0; j < (umi_int.size() - d); ++j) {
+            // #ifdef DEBUG
+            // cerr << "j:" << j << endl;
+            // #endif
              umi_int[j + d] = (int)bam_seqi(seq, j + start);
         }
 
@@ -401,6 +429,9 @@ int record_exists(BamDB* bamdb, dbRecordPe* record) {
 }
 
 int process_read1(BamDB* bamdb, dbRecord* record ,bam1_t* b) {
+    #ifdef DEBUG
+    cerr << "process_read1" << endl;
+    #endif //DEBUG
     // continue if read has indels or skipped references
     if (bad_cigar(b)) return 2;
 
@@ -417,6 +448,9 @@ int process_read1(BamDB* bamdb, dbRecord* record ,bam1_t* b) {
 }
 
 void process_read2(dbRecordPe* record, bam1_t* b) {
+    #ifdef DEBUG
+    cerr << "process_read2" << endl;
+    #endif //DEBUG
     record->set_positions(b, 2);
     record->set_insert(b);
 }
@@ -440,16 +474,19 @@ void process_read(BamDB* bamdb, dbRecordPe* record, bam1_t* b) {
         process_read1(bamdb, record, b);
         if (rc_exists) {
             record->update_record(1);
-            return;
+        } else {
+            record->insert_to_db(1);
         }
     } else if ((b->core.flag&BAM_FREAD2) != 0) {
         process_read2(record, b);
         if (rc_exists) {
             record->update_record(2);
             return;
+        } else {
+            record->insert_to_db(2);
         }
     }
-    record->insert_to_db();
+
 }
 
 int fill_db(BamDB* bamdb) {
@@ -467,13 +504,15 @@ int fill_db(BamDB* bamdb) {
             dbRecordSe* record = new dbRecordSe(bamdb);
             record->set_tid(tid);
             fill_db_tid(bamdb, record, bam_itr);
+            delete record;
         } else {
             dbRecordPe* record = new dbRecordPe(bamdb);
             record->set_tid(tid);
             fill_db_tid(bamdb, record, bam_itr);
+            delete record;
         }
+        bam_itr_destroy(bam_itr);
     }
-    //sqlite3_close(bamdb->get_conn());
     return 0;
 }
 
@@ -498,6 +537,7 @@ int fill_db_tid(BamDB* bamdb, TRecord* record, hts_itr_t* bam_itr) {
         //     exit(1);
         // }
     }
+    bam_destroy1(b);
     sqlite3_exec(bamdb->get_conn(), "END TRANSACTION", NULL, NULL, &err_msg);
     return 0;
 }

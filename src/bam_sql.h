@@ -23,7 +23,6 @@ class BamDB {
             samFile* bam;
             bam_hdr_t* header;
             hts_idx_t* idx;
-//            const char* db_fname;
             sqlite3* conn;
             sqlite3_stmt* stmt;
 
@@ -36,7 +35,11 @@ class BamDB {
     public:
             BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_length, int bc_min_qual, bool paired_end);
             ~BamDB() {
+                cerr << "destroy BamDB" << endl;
                 sqlite3_close(conn);
+                sam_close(bam);
+                bam_hdr_destroy(header);
+                hts_idx_destroy(idx);
             }
 
             /* Settors */
@@ -132,6 +135,7 @@ class dbRecordSe: public dbRecord {
 
 class dbRecordPe: public dbRecord {
     protected:
+        sqlite3_stmt* insert_stmt;
         sqlite3_stmt* insert_stmt1;
         sqlite3_stmt* insert_stmt2;
         sqlite3_stmt* update_stmt1;
@@ -142,6 +146,10 @@ class dbRecordPe: public dbRecord {
             read_pos.resize(4);
             const char* tail = 0;
 
+            char insert_sql[BUFFER_SIZE];
+            sprintf(insert_sql, "INSERT INTO align VALUES (@IN, @FL, @CL, @TID, @HPOS1, @TPOS1, @HPOS2, @TPOS2, @INS, @STR, @BC, @UMI);");
+            cerr << "prep insert1" << endl;
+            sqlite3_prepare_v2(bamdb->get_conn(), insert_sql, BUFFER_SIZE, &insert_stmt, &tail);
             //Prepare insert1 statement
             char insert_sql1[BUFFER_SIZE];
             sprintf(insert_sql1, "INSERT INTO align VALUES (@IN, @FL, @CL, @TID, @HPOS1, @TPOS1, @STR, @BC, @UMI);");
