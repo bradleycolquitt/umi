@@ -9,12 +9,12 @@
 using namespace std;
 
 int main() {
-    const char* bam_fname = "/home/brad/src/umi/test_files/load2db_test_qsort.bam";
+    const char* bam_fname = "/home/brad/src/umi/test_files/load2db_test_qsort_100K.bam";
     const char* db_fname = "/home/brad/src/umi/test_files/test_pe.db";
     remove(db_fname);
 
     BamDB* bamdb = new BamDB(bam_fname, db_fname, "bc8", 8, 17, true);
-    //ProfilerStart("/home/brad/src/umi/profiling/test_dna3_cpu.prof");
+    ProfilerStart("/home/brad/src/umi/profiling/test_pe_cpu1.prof");
     //HeapProfilerStart("/home/brad/src/umi/profiling/test-heap");
     #ifdef DEBUG
     cerr << "finished align" << endl;
@@ -25,7 +25,7 @@ int main() {
     #endif
     fill_db(bamdb);
     bamdb->create_reftable();
-    //ProfilerStop();
+    ProfilerStop();
     delete bamdb;
     //HeapProfilerStop();
     return 0;

@@ -7,6 +7,12 @@
 
 using namespace std;
 
+#ifdef DEBUG
+#define DEBUG_LOG(x) cerr << x << endl;
+#else
+#define DEBUG_LOG(x)
+#endif
+
 // Main BamDB constructor
 BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_length, int bc_min_qual, bool paired_end)
     : bam_fname(bam_fname)
@@ -124,8 +130,14 @@ int dbRecordPe::insert_to_db() {
 
 int dbRecordPe::insert_to_db(int read_num) {
     int result = 0;
+    // #ifdef DEBUG
+    //      cerr << "insert read" << read_num << endl;
+    // //     cerr << "hpos1:" << read_pos[0]
+    // //          << " tpos1:" << read_pos[1] << endl;
+    // #endif
+    //DEBUG_LOG("y");
+
     if (read_num == 1) {
-        cerr << "insert1" << endl;
         sqlite3_bind_text(insert_stmt, 1, instrument, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(insert_stmt, 2, flowcell, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(insert_stmt, 3, cluster, -1, SQLITE_TRANSIENT);
@@ -139,7 +151,6 @@ int dbRecordPe::insert_to_db(int read_num) {
         sqlite3_bind_int(insert_stmt, 11, bc);
         sqlite3_bind_int(insert_stmt, 12, umi);
     } else if (read_num == 2) {
-        cerr << "insert2" << endl;
         sqlite3_bind_text(insert_stmt, 1, "", -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(insert_stmt, 2, "", -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(insert_stmt, 3, "", -1, SQLITE_TRANSIENT);
@@ -164,6 +175,9 @@ int dbRecordPe::insert_to_db(int read_num) {
 
 int dbRecordPe::update_record(int read_num) {
     int result = 0;
+    // #ifdef DEBUG
+    //     cerr << "update read" << read_num << endl;
+    // #endif
     if (read_num == 1) {
         sqlite3_bind_int(update_stmt1, 1, read_pos[0]);
         sqlite3_bind_int(update_stmt1, 2, read_pos[1]);
@@ -380,27 +394,28 @@ void dbRecord::set_umi(BamDB* bamdb, bam1_t* b, int used_offset) {
     umi = get_sequence(b, bamdb->get_sequence_pos(0), bamdb->get_sequence_pos(1), used_offset);
 }
 
-int record_exists(BamDB* bamdb, dbRecordPe* record) {
+int dbRecord::exists(BamDB* bamdb) {
     int result = 0;
-    const char* tail = 0;
-    char SQL[BUFFER_SIZE];
-    sqlite3_stmt* stmt_exists;
+    int exec_result = 0;
 
-    sprintf(SQL, "SELECT EXISTS(SELECT 1 FROM align WHERE cluster=?);");
-    if ((result = sqlite3_prepare_v2(bamdb->get_conn(), SQL, BUFFER_SIZE, &stmt_exists, &tail)) != SQLITE_OK) {
-        fprintf(stderr, "SQL error (%d) on record check prep. \n", result);
-    }
-    sqlite3_bind_text(stmt_exists, 1, record->get_cluster(), -1, SQLITE_TRANSIENT);
-    if ((result = sqlite3_step(stmt_exists)) >= 100) {
+    // #ifdef DEBUG
+    // cerr << cluster << endl;
+    // #endif
+    //DEBUG_LOG("cluster:" << cluster);
+    sqlite3_bind_text(stmt_exists, 1, cluster, -1, SQLITE_TRANSIENT);
+    if ((result = sqlite3_step(stmt_exists)) < 100) {
         fprintf(stderr, "SQL error (%d) on record check execution. \n", result);
     }
-    return sqlite3_column_int(stmt_exists, 0);
+    exec_result = sqlite3_column_int(stmt_exists, 0);
+    sqlite3_reset(stmt_exists);
+    return(exec_result);
 }
 
 int process_read1(BamDB* bamdb, dbRecord* record ,bam1_t* b) {
-    #ifdef DEBUG
-    cerr << "process_read1" << endl;
-    #endif //DEBUG
+    // #ifdef DEBUG
+    // cerr << "process_read1" << endl;
+    // #endif //DEBUG
+
     // continue if read has indels or skipped references
     if (bad_cigar(b)) return 2;
 
@@ -417,9 +432,9 @@ int process_read1(BamDB* bamdb, dbRecord* record ,bam1_t* b) {
 }
 
 void process_read2(dbRecordPe* record, bam1_t* b) {
-    #ifdef DEBUG
-    cerr << "process_read2" << endl;
-    #endif //DEBUG
+    // #ifdef DEBUG
+    // cerr << "process_read2" << endl;
+    // #endif //DEBUG
     record->set_positions(b, 2);
     record->set_insert(b);
 }
@@ -433,17 +448,21 @@ void process_read(BamDB* bamdb, dbRecordSe* record, bam1_t* b) {
 }
 
 void process_read(BamDB* bamdb, dbRecordPe* record, bam1_t* b) {
-    #ifdef DEBUG
-    cerr << "process_read" << endl;
-    #endif //DEBUG
+    // #ifdef DEBUG
+    // cerr << "process_read" << endl;
+    // #endif //DEBUG
+
     record->split_qname(b);
-    int rc_exists = record_exists(bamdb, record);
-    #ifdef DEBUG
-    cerr << "record exists:" << rc_exists << endl;
-    #endif
+    int rc_exists = record->exists(bamdb);
+
+    // #ifdef DEBUG
+    // cerr << "record exists:" << rc_exists << endl;
+    // #endif
+    //DEBUG_LOG("record exists:" << rc_exists);
     if ((b->core.flag&BAM_FREAD1) != 0) {
         process_read1(bamdb, record, b);
         if (rc_exists) {
+            ////DEBUG_LOG("record exists:" << rc_exists);
             record->update_record(1);
         } else {
             record->insert_to_db(1);
@@ -451,6 +470,7 @@ void process_read(BamDB* bamdb, dbRecordPe* record, bam1_t* b) {
     } else if ((b->core.flag&BAM_FREAD2) != 0) {
         process_read2(record, b);
         if (rc_exists) {
+            ////DEBUG_LOG("record exists:" << rc_exists);
             record->update_record(2);
         } else {
             record->insert_to_db(2);
@@ -460,9 +480,9 @@ void process_read(BamDB* bamdb, dbRecordPe* record, bam1_t* b) {
 }
 
 int fill_db(BamDB* bamdb) {
-    #ifdef DEBUG
-    cerr << "fill_db" << endl;
-    #endif //DEBUG
+    // #ifdef //DEBUG
+    // cerr << "fill_db" << endl;
+    // #endif ////DEBUG
     char* err_msg = 0;
     //turn off synchronous writing to disk for increased insertion speed
     sqlite3_exec(bamdb->get_conn(), "PRAGMA synchronous = OFF", NULL, NULL, &err_msg);

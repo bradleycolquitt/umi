@@ -12,6 +12,12 @@ using namespace std;
 #define BC_PATH "/home/brad/lib/barcodes/"
 #define BUFFER_SIZE 256
 
+#ifdef DEBUG
+#define DEBUG_LOG(x) cerr << x << endl;
+#else
+#define DEBUG_LOG(x)
+#endif
+
 class BamDB {
   private:
             const char* bam_fname;
@@ -70,10 +76,22 @@ class dbRecord {
         int tid, bc, umi;
         vector<uint32_t> read_pos;
         bool strand;
+        sqlite3_stmt* stmt_exists;
 
     public:
         dbRecord() {}
-        dbRecord(BamDB* bamdb);
+        dbRecord(BamDB* bamdb)
+            : bamdb(bamdb)
+        {
+            DEBUG_LOG("x");
+            int result = 0;
+            const char* tail = 0;
+            char SQL[BUFFER_SIZE];
+            sprintf(SQL, "SELECT EXISTS(SELECT 1 FROM align WHERE cluster=?);");
+            if ((result = sqlite3_prepare_v2(bamdb->get_conn(), SQL, BUFFER_SIZE, &stmt_exists, &tail)) != SQLITE_OK) {
+                fprintf(stderr, "SQL error (%d) on record check prep. \n", result);
+            }
+        }
         virtual ~dbRecord() {}
 
         /* Settors */
@@ -81,12 +99,15 @@ class dbRecord {
         void set_bc(BamDB* bamdb, bam1_t* b, int* used_offset);
         void set_umi(BamDB* bamdb, bam1_t* b, int used_offset);
         virtual int set_positions(bam1_t* b, int read_num) = 0;
+        //int set_positions(bam1_t* b, int read_num);
 
         /* Gettors */
         const char* get_cluster() { return cluster; }
 
         /* Others */
         virtual int insert_to_db() = 0;
+        //int insert_to_db();
+        int exists(BamDB* bamdb);
         void split_qname(bam1_t* b);
 
     friend class BamDB;
@@ -96,7 +117,9 @@ class dbRecordSe: public dbRecord {
     protected:
         sqlite3_stmt* stmt;
     public:
-        dbRecordSe(BamDB* bamdb) {
+        dbRecordSe(BamDB* bamdb)
+        : dbRecord(bamdb)
+        {
             read_pos.resize(2);
 
             //Prepare insert statement
@@ -130,16 +153,18 @@ class dbRecordPe: public dbRecord {
         sqlite3_stmt* update_stmt2;
         uint32_t insert;
     public:
-        dbRecordPe(BamDB* bamdb) {
+        dbRecordPe(BamDB* bamdb)
+        : dbRecord(bamdb)
+        {
             read_pos.resize(4);
             int result = 0;
             const char* tail = 0;
 
             char insert_sql[BUFFER_SIZE];
             sprintf(insert_sql, "INSERT INTO align VALUES (@IN, @FL, @CL, @TID, @HPOS1, @TPOS1, @HPOS2, @TPOS2, @INS, @STR, @BC, @UMI);");
-            cerr << "prep insert1" << endl;
             sqlite3_prepare_v2(bamdb->get_conn(), insert_sql, BUFFER_SIZE, \
                                &insert_stmt, &tail);
+
             //Prepare update statement, read1
             char update_sql1[BUFFER_SIZE];
             sprintf(update_sql1, "UPDATE align SET hpos1=?, tpos1=?, strand=?, bc=?, umi=? WHERE cluster=?");
