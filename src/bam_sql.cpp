@@ -1,4 +1,3 @@
-#include <fstream>
 #include <sstream>
 #include <bam_sql.h>
 #include <bam_utils.h>
@@ -45,10 +44,7 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
         sequence_pos.push_back(umi_length);
         size_t bc_length = barcodes[0].size();
         sequence_pos.push_back(sequence_pos[2] + bc_length - 1);
-        #ifdef DEBUG
-        cerr << sequence_pos[2] << " " << sequence_pos[3] << " "
-             << bc_length << endl;
-        #endif
+
         // defines offsets used during barcode search
         int offsets_array[] = {0,-1,1};
         bc_offsets.assign(offsets_array, offsets_array + sizeof(offsets_array) / sizeof(int));
@@ -57,7 +53,6 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
 // Read in barcodes file and load sequences into barcodes vector
 void BamDB::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
     ifstream bc_s(fname, ifstream::in);
-
     if (!bc_s.good()) {
          throw runtime_error("Error: Barcode file not found.");
     }
@@ -69,7 +64,6 @@ void BamDB::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
         }
         vector<string> sline = split(line, '\t');
         vector<int> s2i = seq2int(sline[1]);
-
         vec_p.push_back(s2i);
     }
 }
@@ -106,34 +100,29 @@ void BamDB::create_reftable() {
 
 }
 
-vector<int> dbRecordSe::insert_to_db() {
-    vector<int> codes;
-    //codes.resize(12);
-    codes.push_back(sqlite3_bind_text(stmt, 1, instrument, -1, SQLITE_TRANSIENT));
-    codes.push_back(sqlite3_bind_text(stmt, 2, flowcell, -1, SQLITE_TRANSIENT));
-    codes.push_back(sqlite3_bind_text(stmt, 3, cluster, -1, SQLITE_TRANSIENT));
-    codes.push_back(sqlite3_bind_int(stmt, 4, tid));
-    codes.push_back(sqlite3_bind_int(stmt, 5, read_pos[0]));
-    codes.push_back(sqlite3_bind_int(stmt, 6, read_pos[1]));
-    codes.push_back(sqlite3_bind_int(stmt, 7, strand));
-    codes.push_back(sqlite3_bind_int(stmt, 8, bc));
-    codes.push_back(sqlite3_bind_int(stmt, 9, umi));
+int dbRecordSe::insert_to_db() {
+    sqlite3_bind_text(stmt, 1, instrument, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, flowcell, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, cluster, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 4, tid);
+    sqlite3_bind_int(stmt, 5, read_pos[0]);
+    sqlite3_bind_int(stmt, 6, read_pos[1]);
+    sqlite3_bind_int(stmt, 7, strand);
+    sqlite3_bind_int(stmt, 8, bc);
+    sqlite3_bind_int(stmt, 9, umi);
 
-    codes.push_back(sqlite3_step(stmt));
-    //codes.push_back(sqlite3_clear_bindings(stmt));
-    codes.push_back(sqlite3_reset(stmt));
+    sqlite3_step(stmt);
+    sqlite3_clear_bindings(stmt);
+    sqlite3_reset(stmt);
 
-    return codes;
+    return 0;
 }
 
-vector<int> dbRecordPe::insert_to_db() {
-    vector<int> kludge;
-    return kludge;
+int dbRecordPe::insert_to_db() {
+    return 0;
 }
 
-vector<int> dbRecordPe::insert_to_db(int read_num) {
-    vector<int> codes;
-    codes.resize(12);
+int dbRecordPe::insert_to_db(int read_num) {
     int result = 0;
     if (read_num == 1) {
         cerr << "insert1" << endl;
@@ -149,22 +138,6 @@ vector<int> dbRecordPe::insert_to_db(int read_num) {
         sqlite3_bind_int(insert_stmt, 10, strand);
         sqlite3_bind_int(insert_stmt, 11, bc);
         sqlite3_bind_int(insert_stmt, 12, umi);
-        #ifdef DEBUG
-        cerr << "ins:" << instrument
-             << " flow:" << flowcell
-             << " cluster:" << cluster
-             << " tid:" << tid
-             << " head:" << read_pos[0]
-             << " tail:" << read_pos[1]
-             << " strand:" << strand
-             << " bc:" << bc
-             << " umi:" << umi << endl;;
-        #endif
-        if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
-            fprintf(stderr, "Insertion error (%d): read_num=1, %s\n", result, cluster);
-        }
-        //sqlite3_clear_bindings(insert_stmt);
-        sqlite3_reset(insert_stmt);
     } else if (read_num == 2) {
         cerr << "insert2" << endl;
         sqlite3_bind_text(insert_stmt, 1, "", -1, SQLITE_TRANSIENT);
@@ -179,30 +152,40 @@ vector<int> dbRecordPe::insert_to_db(int read_num) {
         sqlite3_bind_int(insert_stmt, 10, 0);
         sqlite3_bind_int(insert_stmt, 11, 0);
         sqlite3_bind_int(insert_stmt, 12, 0);
-        sqlite3_step(insert_stmt);
-        //sqlite3_clear_bindings(insert_stmt2);
-        sqlite3_reset(insert_stmt);
     }
-    return codes;
+    if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
+        fprintf(stderr, "Insertion error (%d): read_num=%d, %s\n", result, \
+               read_num, cluster);
+    }
+    sqlite3_clear_bindings(insert_stmt);
+    sqlite3_reset(insert_stmt);
+    return 0;
 }
 
 int dbRecordPe::update_record(int read_num) {
+    int result = 0;
     if (read_num == 1) {
         sqlite3_bind_int(update_stmt1, 1, read_pos[0]);
         sqlite3_bind_int(update_stmt1, 2, read_pos[1]);
         sqlite3_bind_int(update_stmt1, 3, strand);
         sqlite3_bind_int(update_stmt1, 4, bc);
         sqlite3_bind_int(update_stmt1, 5, umi);
+        sqlite3_bind_text(update_stmt1, 6, cluster, -1, SQLITE_TRANSIENT);
 
-        sqlite3_step(update_stmt1);
+        if ((result = sqlite3_step(update_stmt1)) != SQLITE_DONE ) {
+            fprintf(stderr, "Update error (%d): read_num=1, %s\n", result, cluster);
+        }
         sqlite3_clear_bindings(update_stmt1);
         sqlite3_reset(update_stmt1);
     } else if (read_num == 2) {
         sqlite3_bind_int(update_stmt2, 1, read_pos[2]);
         sqlite3_bind_int(update_stmt2, 2, read_pos[3]);
         sqlite3_bind_int(update_stmt2, 3, insert);
+        sqlite3_bind_text(update_stmt2, 4, cluster, -1, SQLITE_TRANSIENT);
 
-        sqlite3_step(update_stmt2);
+        if ((result = sqlite3_step(update_stmt2)) != SQLITE_DONE ) {
+            fprintf(stderr, "Update error (%d): read_num=2, %s\n", result, cluster);
+        }
         sqlite3_clear_bindings(update_stmt2);
         sqlite3_reset(update_stmt2);
     }
@@ -256,7 +239,6 @@ int filter_multi_reads(bam1_t* b) {
     uint8_t *s = bam_aux_get(b, "NH");
     if (s) {
         if (bam_aux2i(s) > 1) {
-            //cout << bam_aux2i(s) << endl;
             return 1;
         }
     }
@@ -272,16 +254,12 @@ void dbRecord::split_qname(bam1_t* b) {
     char* qname_array = strtok(qname, ":");
     int j = 0;
     while (qname_array != NULL) {
-        // change these to settors
         if (j == 0) {
             strcpy(instrument, qname_array);
-           // record->seinstrument(qname_array);
         } else if (j == 2) {
             strcpy(flowcell, qname_array);
-            //record->set_flowcell(qname_array);
         } else if (j== 3) {
             strcpy(cluster, qname_array);
-            //record->set_cluster(qname_array);
         } else if (j > 3) {
             strcat(cluster, ":");
             strcat(cluster, qname_array);
@@ -295,9 +273,6 @@ int compare_barcode_local(vector<vector<int> >::iterator bc_iter, uint8_t* seq, 
     int k = 0;
     int mm = 0;
     for (int j = start; j <= end ; ++j) {
-        // #ifdef DEBUG
-        // cerr << "j:" << j << " k:" << k << endl;
-        // #endif
         if (mm > 1) return 0; // return after second mismatch
         if ((*bc_iter)[k] != bam_seqi(seq, j)) mm += 1;
         ++k;
@@ -313,7 +288,6 @@ int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, vector<int>* b
 
     vector<int>::iterator offsets_iter = bc_offsets->begin();
     vector<int>::iterator offsets_iter_end = bc_offsets->end();
-
     vector<vector<int> >::iterator bc_iter;
     vector<vector<int> >::iterator bc_iter_end = barcodes->end();
 
@@ -321,9 +295,6 @@ int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, vector<int>* b
     for (; offsets_iter != offsets_iter_end; ++offsets_iter) {
         bc_iter = barcodes->begin();
         for (; bc_iter != bc_iter_end ; ++bc_iter) {
-            // #ifdef DEBUG
-            // cerr << "i:" << i << endl;
-            // #endif
             if (compare_barcode_local(bc_iter, seq, start + *offsets_iter, end + *offsets_iter)) {
                 *used_offset = *offsets_iter;
                 return i;
@@ -357,9 +328,8 @@ int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes, 
     return compare_barcode(seq, barcodes, bc_offsets, start, end, used_offset);
 }
 
-int ShiftAdd(int sum, int digit)
-{
-     return sum*10 + digit;
+int ShiftAdd(int sum, int digit) {
+    return sum*10 + digit;
 }
 
 //intended for umi
@@ -388,16 +358,9 @@ int get_sequence(bam1_t* b, int start, int end, int used_offset) {
         return 0;
     } else {
         vector<int> umi_int(end - start + 1 + d, 0);
-        // #ifdef DEBUG
-        // cerr << "d:" << d << " umi_int size:" << umi_int.size() << endl;
-        // #endif
         for (unsigned int j = 0; j < (umi_int.size() - d); ++j) {
-            // #ifdef DEBUG
-            // cerr << "j:" << j << endl;
-            // #endif
              umi_int[j + d] = (int)bam_seqi(seq, j + start);
         }
-
         // if offset truncates UMI, randomly assign base to truncated positions
         if (d > 0) {
             int nuc_set[] = {1,2,4,8};
@@ -418,13 +381,19 @@ void dbRecord::set_umi(BamDB* bamdb, bam1_t* b, int used_offset) {
 }
 
 int record_exists(BamDB* bamdb, dbRecordPe* record) {
-    //char* err_msg = 0;
+    int result = 0;
     const char* tail = 0;
     char SQL[BUFFER_SIZE];
     sqlite3_stmt* stmt_exists;
-    sprintf(SQL, "SELECT EXISTS(SELECT 1 FROM align WHERE cluster=\'%s\'", record->get_cluster());
-    sqlite3_prepare_v2(bamdb->get_conn(), SQL, BUFFER_SIZE, &stmt_exists, &tail);
-    sqlite3_step(stmt_exists);
+
+    sprintf(SQL, "SELECT EXISTS(SELECT 1 FROM align WHERE cluster=?);");
+    if ((result = sqlite3_prepare_v2(bamdb->get_conn(), SQL, BUFFER_SIZE, &stmt_exists, &tail)) != SQLITE_OK) {
+        fprintf(stderr, "SQL error (%d) on record check prep. \n", result);
+    }
+    sqlite3_bind_text(stmt_exists, 1, record->get_cluster(), -1, SQLITE_TRANSIENT);
+    if ((result = sqlite3_step(stmt_exists)) >= 100) {
+        fprintf(stderr, "SQL error (%d) on record check execution. \n", result);
+    }
     return sqlite3_column_int(stmt_exists, 0);
 }
 
@@ -463,13 +432,15 @@ void process_read(BamDB* bamdb, dbRecordSe* record, bam1_t* b) {
     }
 }
 
-
 void process_read(BamDB* bamdb, dbRecordPe* record, bam1_t* b) {
     #ifdef DEBUG
     cerr << "process_read" << endl;
     #endif //DEBUG
     record->split_qname(b);
     int rc_exists = record_exists(bamdb, record);
+    #ifdef DEBUG
+    cerr << "record exists:" << rc_exists << endl;
+    #endif
     if ((b->core.flag&BAM_FREAD1) != 0) {
         process_read1(bamdb, record, b);
         if (rc_exists) {
@@ -481,7 +452,6 @@ void process_read(BamDB* bamdb, dbRecordPe* record, bam1_t* b) {
         process_read2(record, b);
         if (rc_exists) {
             record->update_record(2);
-            return;
         } else {
             record->insert_to_db(2);
         }
