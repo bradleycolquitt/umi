@@ -63,6 +63,7 @@ class BamDB {
             /* Other */
             void create_reftable();
             int create_align_table();
+            void index_cluster();
 
     friend class dbRecord;
 };

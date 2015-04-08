@@ -1,6 +1,6 @@
-#include <fstream>
 #include <bam_utils.h>
-#include <htslib/sam.h>
+//#include <htslib/sam.h>
+//#include <fstream>
 
 using namespace std;
 
@@ -50,4 +50,133 @@ vector<int> seq2int(string& s) {
 }
 
     return out_vec;
+}
+
+/***********************
+Read Processing utilities
+**************************/
+int bad_cigar(bam1_t* b) {
+    uint32_t* cigar = bam_get_cigar(b);
+    int op;
+    for (int i=0; i < b->core.n_cigar; ++i) {
+        op = bam_cigar_op(cigar[i]);
+        if (op == BAM_CINS || op == BAM_CDEL || op == BAM_CREF_SKIP) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// Filter out multimappers (NH>1)
+int filter_multi_reads(bam1_t* b) {
+    uint8_t *s = bam_aux_get(b, "NH");
+    if (s) {
+        if (bam_aux2i(s) > 1) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int compare_barcode_local(vector<vector<int> >::iterator bc_iter, uint8_t* seq, int start, int end) {
+    int k = 0;
+    int mm = 0;
+    for (int j = start; j <= end ; ++j) {
+        if (mm > 1) return 0; // return after second mismatch
+        if ((*bc_iter)[k] != bam_seqi(seq, j)) mm += 1;
+        ++k;
+    }
+    return 1; // match found
+}
+
+/*
+Look for barcode match within given start and end of provided sequence.
+Will also search sequence with position offsets provided in bc_offsets vector
+*/
+int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, vector<int>* bc_offsets, int start, int end, int* used_offset) {
+
+    vector<int>::iterator offsets_iter = bc_offsets->begin();
+    vector<int>::iterator offsets_iter_end = bc_offsets->end();
+    vector<vector<int> >::iterator bc_iter;
+    vector<vector<int> >::iterator bc_iter_end = barcodes->end();
+
+    int i = 0;
+    for (; offsets_iter != offsets_iter_end; ++offsets_iter) {
+        bc_iter = barcodes->begin();
+        for (; bc_iter != bc_iter_end ; ++bc_iter) {
+            if (compare_barcode_local(bc_iter, seq, start + *offsets_iter, end + *offsets_iter)) {
+                *used_offset = *offsets_iter;
+                return i;
+            }
+            ++i;
+        }
+        i = 0;
+    }
+    return -1;
+}
+
+//for barcodes
+int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes, \
+                 vector<int>* bc_offsets, int min_qual, int* used_offset) {
+    uint8_t* seq = bam_get_seq(b);
+    uint8_t* qual = bam_get_qual(b);
+
+    // skip read if barcode quality less than min_qual
+    int min = 100000;
+    int qual_int;
+    for (int j = start; j <= end ; ++j) {
+        //cout << j << endl;
+        qual_int = int(*qual);
+        if (qual_int < min) min = qual_int;
+        qual += 1;
+    }
+
+    if (min < min_qual) return -1;
+
+    // returns index of perfect match or one mismatch
+    return compare_barcode(seq, barcodes, bc_offsets, start, end, used_offset);
+}
+
+int ShiftAdd(int sum, int digit) {
+    return sum*10 + digit;
+}
+
+//intended for umi
+int get_sequence(bam1_t* b, int start, int end, int used_offset) {
+    uint8_t* seq = bam_get_seq(b);
+    uint8_t* qual = bam_get_qual(b);
+
+    start = start + used_offset;
+    end = end + used_offset;
+
+    int d = 0;
+    // occurrs if sequencing is truncated at beginning
+    if (start < 0) {
+        start = 0;
+        d = abs(used_offset);
+    }
+
+    int min = 100000;
+    //int qual_int;
+    for (int j = start; j <= end ; ++j) {
+        if (int(*qual) < min) min = int(*qual);
+        qual += 1;
+    }
+
+    if (min < 20) {
+        return 0;
+    } else {
+        vector<int> umi_int(end - start + 1 + d, 0);
+        for (unsigned int j = 0; j < (umi_int.size() - d); ++j) {
+             umi_int[j + d] = (int)bam_seqi(seq, j + start);
+        }
+        // if offset truncates UMI, randomly assign base to truncated positions
+        if (d > 0) {
+            int nuc_set[] = {1,2,4,8};
+            for (int i = 0; i < d; ++i) {
+                umi_int[i] = nuc_set[(int)(rand() % (sizeof(nuc_set) / sizeof(int)))];
+            }
+        }
+        return accumulate(umi_int.begin(), umi_int.end(), 0, ShiftAdd);
+    }
 }
