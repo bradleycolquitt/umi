@@ -100,7 +100,7 @@ int dbRecordSe::insert_to_db() {
 dbRecordPe::dbRecordPe(BamDB* bamdb)
 : dbRecord(bamdb)
 {
-    read_pos.resize(4);
+     read_pos.resize(4);
     int result = 0;
     const char* tail = 0;
 

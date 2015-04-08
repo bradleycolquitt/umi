@@ -51,7 +51,6 @@ class dbRecord {
         /* Others */
         void prepare_exists();
         virtual int insert_to_db() = 0;
-        //int insert_to_db();
 
         void split_qname(bam1_t* b);
 
@@ -96,7 +95,6 @@ class dbRecord0 {
         char instrument[BUFFER_SIZE];
         char flowcell[BUFFER_SIZE];
         char cluster[BUFFER_SIZE];
-        int tid;
         vector<uint32_t> read_pos;
         bool strand;
     public:
@@ -105,25 +103,17 @@ class dbRecord0 {
             : bamdb(bamdb)
             , read_pos(2)
         {
-           //prepare_exists();
         }
         virtual ~dbRecord0() {}
 
         /* Settors */
-        void set_tid(int tid) { tid = tid; }
-        //void set_bc(BamDB* bamdb, bam1_t* b, int* used_offset);
-        //void set_umi(BamDB* bamdb, bam1_t* b, int used_offset);
         int set_positions(bam1_t* b);
-        //virtual int set_positions(bam1_t* b, int read_num);
 
         /* Gettors */
         const char* get_cluster() { return cluster; }
 
         /* Others */
-        //void prepare_exists();
         virtual int insert_to_db() = 0;
-        //int insert_to_db();
-
         void split_qname(bam1_t* b);
 
     friend class BamDB;
@@ -132,10 +122,13 @@ class dbRecord0 {
 class dbRecord1: public dbRecord0 {
     private:
         int bc, umi;
+        int32_t tid;
         sqlite3_stmt* insert_stmt;
     public:
         dbRecord1() {}
         dbRecord1(BamDB* bamdb);
+        void set_tid(int32_t tid) { tid = tid; }
+        int32_t get_tid() { return tid; }
         void set_bc(BamDB* bamdb, bam1_t* b, int* used_offset);
         void set_umi(BamDB* bamdb, bam1_t* b, int used_offset);
         int insert_to_db();
@@ -143,10 +136,12 @@ class dbRecord1: public dbRecord0 {
 
 class dbRecord2: public dbRecord0 {
     private:
+        int32_t tid;
         sqlite3_stmt* insert_stmt;
     public:
         dbRecord2() {}
         dbRecord2(BamDB* bamdb);
+        void set_tid(int32_t tid) { tid = tid; }
         int insert_to_db();
 };
 

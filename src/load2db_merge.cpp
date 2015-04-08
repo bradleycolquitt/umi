@@ -1,5 +1,5 @@
 #include <htslib/sam.h>
-#include <bam_sql_serial.h>
+#include <bam_sql_serial2.h>
 #include <bam_utils.h>
 #include <iostream>
 #include <gperftools/profiler.h>
@@ -95,10 +95,10 @@ int main(int argc, char** argv) {
     bool paired_end = vm["paired-end"].as<bool>();
     BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_length, bc_min_qual, paired_end);
 
-    bamdb->create_align_table();
+//    bamdb->create_align_table();
     fill_db(bamdb);
     bamdb->create_reftable();
-    create_index(bamdb);
+//    create_index(bamdb);
 
     return 0;
 }

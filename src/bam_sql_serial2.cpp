@@ -80,28 +80,16 @@ void BamDB::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
 }
 
 int BamDB::create_align_table() {
-     char* err_msg = 0;
-     int rc;
-     //char statement[BUFFER_SIZE];
      char* read1_sql = sqlite3_mprintf("CREATE TABLE IF NOT EXISTS read1 (instrument text, flowcell text, cluster text, tid int, hpos int, tpos int, strand int, bc int, umi int);");
      char* read2_sql = sqlite3_mprintf("CREATE TABLE IF NOT EXISTS read2 (instrument text, flowcell text, cluster text, tid int, hpos int, tpos int, strand int);");
 
-
-    rc = sqlite3_exec(conn, read1_sql, NULL, NULL, &err_msg);
-    if( rc != SQLITE_OK ){
-       fprintf(stderr, "SQL error (%d) on read1 table creation: %s\n", rc, err_msg);
-    } else{
-       fprintf(stdout, "Read1 table created successfully\n");
+    try {
+        execute(conn, read1_sql);
+        execute(conn, read2_sql);
+    } catch (sql_exception &e) {
+        cerr << "Read table creation, " <<  e.what() << endl;
     }
-    sqlite3_free(read1_sql);
-
-    rc = sqlite3_exec(conn, read2_sql, NULL, NULL, &err_msg);
-    if( rc != SQLITE_OK ){
-       fprintf(stderr, "SQL error (%d) on read2 table creation: %s\n", rc, err_msg);
-    } else{
-       fprintf(stdout, "Read2 table created successfully\n");
-    }
-    sqlite3_free(read2_sql);
+    cerr << "Read tables created." << endl;
     return 0;
 }
 
@@ -111,28 +99,43 @@ void BamDB::create_reftable() {
     int rc;
     char ** names = header->target_name;
 
-    const char* create_table = "CREATE TABLE IF NOT EXISTS reference (name text, tid int);";
-    rc = sqlite3_exec(conn, create_table, NULL, NULL, &err_msg);
-    if (rc != SQLITE_OK) {
-        fprintf(stderr, "SQL error (%d) on reftable creation: %s \n", rc, err_msg);
-    } else {
-        cout << "Reference table created successfully." << endl;
+    const char* reftable_sql = "CREATE TABLE IF NOT EXISTS reference (name text, tid int);";
+    try {
+        execute(conn, reftable_sql);
+    } catch (sql_exception &e) {
+        cerr << "Reference table creation, " << e.what() << endl;
+        return;
     }
+    cerr << "Reference table created successfully." << endl;
 
-    sqlite3_stmt* ref_stmt;
+
+    sqlite3_stmt* stmt;
     char sql[BUFFER_SIZE];
     sprintf(sql, "INSERT INTO reference (name, tid) VALUES (?, ?);");
-    if (sqlite3_prepare_v2(conn, sql, BUFFER_SIZE, &ref_stmt, &tail) == SQLITE_OK) {
+    try {
+        prepare_statment(conn, sql, stmt);
         for (int i = 0; i < header->n_targets; ++i) {
-            sqlite3_bind_text(ref_stmt, 1, names[i], -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int(ref_stmt, 2, i);
-            sqlite3_step(ref_stmt);
-            sqlite3_reset(ref_stmt);
+            bind(conn, stmt, 1, names[i]);
+            bind(conn, stmt, 2, i);
+            step(conn, stmt);
+            sqlite3_reset(stmt);
         }
-        sqlite3_finalize(ref_stmt);
-    } else {
-        fprintf(stderr, "SQL error on reftable statement prep.\n");
+        sqlite3_finalize(stmt);
+    } catch (sql_exception &e) {
+        cerr << "Reference table insertion, " << e.what() << endl;
+        return;
     }
+    // if (sqlite3_prepare_v2(conn, sql, BUFFER_SIZE, &ref_stmt, &tail) == SQLITE_OK) {
+    //     for (int i = 0; i < header->n_targets; ++i) {
+    //         sqlite3_bind_text(ref_stmt, 1, names[i], -1, SQLITE_TRANSIENT);
+    //         sqlite3_bind_int(ref_stmt, 2, i);
+    //         sqlite3_step(ref_stmt);
+    //         sqlite3_reset(ref_stmt);
+    //     }
+    //     sqlite3_finalize(ref_stmt);
+    // } else {
+    //     fprintf(stderr, "SQL error on reftable statement prep.\n");
+    // }
 
 }
 
@@ -148,6 +151,62 @@ void BamDB::index_cluster() {
         fprintf(stderr, "SQL error (%d) on read2.cluster_index: %s \n", result, err_msg);
     }
     sqlite3_free(err_msg);
+}
+
+std::string get_selfpath() {
+    char buff[PATH_MAX];
+        ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff)-1);
+            if (len != -1) {
+                  buff[len] = '\0';
+                        return std::string(buff);
+                            } else {
+                                 /* handle error condition */
+                                     }
+                                     }
+void BamDB::merge_tables() {
+    //char buf[BUFFER_SIZE];
+    boost::filesystem::path p(get_selfpath());
+    boost::filesystem::path dir = p.parent_path();
+    string path = dir.string();
+    path = path + "/sql/merge_tables.sql";
+    //readlink("/proc/self/exe", buf, BUFFER_SIZE);
+    //strcat(buf, "/sql/merge_tables.sql");
+    cerr << path << endl;
+    //DEBUG_LOGbuf);
+    ifstream sql_file(path);
+    string sql_contents((istreambuf_iterator<char>(sql_file)), istreambuf_iterator<char>());
+    // char* sql = buf;
+
+    //strcat(sql, sql_contents.c_str());
+
+    const char* sql = sql_contents.c_str();
+    DEBUG_LOG(sql);
+    // prepare statement
+    sqlite3_stmt* stmt;
+    int result = 0;
+    const char* tail;
+    try {
+        sqlite3_prepare_v2(conn, sql, -1, &stmt, &tail);
+        sqlite3_step(stmt);
+        sqlite3_reset(stmt);
+        //DEBUG_LOG(tail);
+        while (*tail != '\0') {
+            //DEBUG_LOG(tail);
+            result = sqlite3_prepare_v2(conn, tail, -1, &stmt, &tail);
+            if (result != SQLITE_OK) {
+                throw sql_exception { result, sqlite3_errmsg(conn)};
+            }
+
+            //DEBUG_LOG(result);
+            sqlite3_step(stmt);
+            sqlite3_reset(stmt);
+        }
+    } catch (sql_exception &e) {
+        cerr << "Merge table statement prep, " << e.what() << endl;
+        return;
+    }
+    cerr << "Merge table created." << endl;
+    return;
 }
 
 int create_index(BamDB* bamdb) {
@@ -209,12 +268,12 @@ void fill_reads(BamDB* bamdb) {
     hts_itr_t* bam_itr;
     for (int tid = 0; tid < bamdb->get_header()->n_targets; ++tid) {
         bam_itr = bam_itr_queryi(bamdb->get_idx(), tid, 0, bamdb->get_rlen(tid));
-
+        DEBUG_LOG(tid);
         dbRecord1* record1 = new dbRecord1(bamdb);
         dbRecord2* record2 = new dbRecord2(bamdb);
         record1->set_tid(tid);
         record2->set_tid(tid);
-
+        DEBUG_LOG(record1->get_tid());
         fill_reads_tid(bamdb, record1, record2, bam_itr);
         delete record1;
         delete record2;
@@ -222,13 +281,9 @@ void fill_reads(BamDB* bamdb) {
     }
 }
 
-void merge_reads(BamDB* bamdb) {
-    return;
-}
-
 int fill_db(BamDB* bamdb) {
     fill_reads(bamdb);
     bamdb->index_cluster();
-    merge_reads(bamdb);
+    bamdb->merge_tables();
     return 0;
 }

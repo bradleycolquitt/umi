@@ -4,10 +4,12 @@
 #include <string_utils.h>
 #include <bam_utils.h>
 #include <dbrecord.h>
+#include <sqlite_wrapper.h>
 #include <sqlite3.h>
 #include <htslib/sam.h>
 #include <boost/regex.hpp>
-
+#include <boost/filesystem.hpp>
+#include <libgen.h>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -87,6 +89,7 @@ class BamDB {
             void create_reftable();
             int create_align_table();
             void index_cluster();
+            void merge_tables();
 
             /* void close_connections() { */
             /*     for (vector<sqlite*>::iterator iter=conns.begin(); iter != conns.end; ++iter) { */
