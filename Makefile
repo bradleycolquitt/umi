@@ -35,13 +35,13 @@ TEST_MERGE_OBJ = ${TEST_MERGE_SRCS:.cpp=.o}
 
 INCLUDE_DIRS := /usr/local/include ./src
 CPPFLAGS += $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
-CPPFLAGS += -std=c++11 -W -Wall -Wno-long-long -pedantic -Wno-variadic-macros -pg -fno-omit-frame-pointer
+CPPFLAGS += -std=c++11 -W -Wall -Wno-long-long -pedantic -Wno-variadic-macros -pg -fno-omit-frame-pointer -DSQLITE_ENABLE_RTREE=1
 
 LIBRARY_DIRS := /usr/local/lib
 LIBS += hts sqlite3 boost_regex boost_program_options boost_system boost_filesystem rt
 LDFLAGS += $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))
 LDFLAGS += $(foreach library, $(LIBS), -l$(library))
-TEST_LDFLAGS = -lprofiler
+TEST_LDFLAGS = -lprofiler -ltcmalloc
 
 .PHONY: target test test_pe serial test_serial merge test_merge
 

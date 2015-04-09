@@ -283,8 +283,6 @@ int dbRecord0::set_positions(bam1_t* b) {
 dbRecord1::dbRecord1(BamDB* bamdb)
 : dbRecord0(bamdb)
 {
-    //read_pos.resize(4);
-    int result = 0;
     const char* tail = 0;
 
     char insert_sql[BUFFER_SIZE];
@@ -313,18 +311,21 @@ int dbRecord1::insert_to_db() {
     sqlite3_bind_int(insert_stmt, 8, bc);
     sqlite3_bind_int(insert_stmt, 9, umi);
 
-    if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
+    result = sqlite3_step(insert_stmt);
+    //if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
+    if (result != SQLITE_DONE) {
         fprintf(stderr, "Insertion error (%d): read1, %s\n", result, cluster);
     }
-    sqlite3_clear_bindings(insert_stmt);
+
     sqlite3_reset(insert_stmt);
+    sqlite3_clear_bindings(insert_stmt);
+
     return 0;
 }
 
 dbRecord2::dbRecord2(BamDB* bamdb)
 : dbRecord0(bamdb)
 {
-    int result = 0;
     const char* tail = 0;
     char insert_sql[BUFFER_SIZE];
     sprintf(insert_sql, "INSERT INTO read2 VALUES (@IN, @FL, @CL, @TID, @HPOS, @TPOS, @STR);");

@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
         ("help,h", "produce help message")
         ("umi-length,u", po::value<int>()->default_value(8), "length of UMI sequence")
         ("bc-min-qual,q", po::value<int>()->default_value(20), "minimum quality score for barcode")
-        ("paired-end", po::value<bool>()->default_value(false), "Record matepair information")
+        //("paired-end", po::value<bool>()->default_value(false), "Record matepair information")
         ("barcode", po::value<string>(), "prefix of barcode file")
         ("db", po::value<string>())
         ("bam", po::value<string>())
@@ -84,18 +84,10 @@ int main(int argc, char** argv) {
 
 
     int umi_length = vm["umi-length"].as<int>();
-    // if ( ! vm.count("umi-positions") ) {
-    // umi_pos.push_back(0);
-    // umi_pos.push_back(4);
-    // } else {
-    // umi_pos = vm["umi-positions"].as<vector<int> >();
-    // }
-
     int bc_min_qual = vm["bc-min-qual"].as<int>();
-    bool paired_end = vm["paired-end"].as<bool>();
-    BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_length, bc_min_qual, paired_end);
+    //bool paired_end = vm["paired-end"].as<bool>();
+    BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_length, bc_min_qual, true);
 
-//    bamdb->create_align_table();
     fill_db(bamdb);
     bamdb->create_reftable();
 //    create_index(bamdb);

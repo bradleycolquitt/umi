@@ -146,19 +146,19 @@ int get_sequence(bam1_t* b, int start, int end, int used_offset) {
     uint8_t* seq = bam_get_seq(b);
     uint8_t* qual = bam_get_qual(b);
 
-    start = start + used_offset;
-    end = end + used_offset;
+    int local_start = start + used_offset;
+    int local_end = end + used_offset;
 
     int d = 0;
     // occurrs if sequencing is truncated at beginning
-    if (start < 0) {
-        start = 0;
+    if (local_start < 0) {
+        local_start = 0;
         d = abs(used_offset);
     }
 
     int min = 100000;
     //int qual_int;
-    for (int j = start; j <= end ; ++j) {
+    for (int j = local_start; j <= local_end ; ++j) {
         if (int(*qual) < min) min = int(*qual);
         qual += 1;
     }
@@ -166,9 +166,10 @@ int get_sequence(bam1_t* b, int start, int end, int used_offset) {
     if (min < 20) {
         return 0;
     } else {
-        vector<int> umi_int(end - start + 1 + d, 0);
-        for (unsigned int j = 0; j < (umi_int.size() - d); ++j) {
-             umi_int[j + d] = (int)bam_seqi(seq, j + start);
+        vector<int> umi_int(local_end - local_start + 1 + d, 0);
+        size_t umi_int_size = umi_int.size();
+        for (unsigned int j = 0; j < (umi_int_size - d); ++j) {
+             umi_int[j + d] = (int)bam_seqi(seq, j + local_start);
         }
         // if offset truncates UMI, randomly assign base to truncated positions
         if (d > 0) {

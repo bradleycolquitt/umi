@@ -102,6 +102,7 @@ class dbRecord0 {
         dbRecord0(BamDB* bamdb)
             : bamdb(bamdb)
             , read_pos(2)
+            , strand(false)
         {
         }
         virtual ~dbRecord0() {}
@@ -127,6 +128,9 @@ class dbRecord1: public dbRecord0 {
     public:
         dbRecord1() {}
         dbRecord1(BamDB* bamdb);
+        ~dbRecord1() {
+            sqlite3_finalize(insert_stmt);
+        }
         void set_tid(int32_t tid) { tid = tid; }
         int32_t get_tid() { return tid; }
         void set_bc(BamDB* bamdb, bam1_t* b, int* used_offset);
@@ -141,6 +145,9 @@ class dbRecord2: public dbRecord0 {
     public:
         dbRecord2() {}
         dbRecord2(BamDB* bamdb);
+        ~dbRecord2() {
+            sqlite3_finalize(insert_stmt);
+        }
         void set_tid(int32_t tid) { tid = tid; }
         int insert_to_db();
 };

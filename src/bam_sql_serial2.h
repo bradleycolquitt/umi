@@ -38,17 +38,10 @@ class BamDB {
     private:
             const char* bam_fname;
             const char* dest_fname;
-            //vector<const char*> dest_fname;
-            /* const char* dest_fname1; //stores read1 */
-            /* const char* dest_fname2; //stores read2 */
-            /* const char* final_fname; //final merged db */
             const bool paired_end;
             samFile* bam;
             bam_hdr_t* header;
             hts_idx_t* idx;
-            //vector<sqlite3*> conns;
-            /* sqlite3* conn1;          //connection to read1 db */
-            /* sqlite3* conn2;          //connection to read2 db */
             sqlite3* conn;           //connection to merge db
             sqlite3_stmt* stmt;
 
@@ -60,7 +53,6 @@ class BamDB {
     public:
             BamDB(const char* bam_fname, const char* final_fname, const char* barcodes_fname, int umi_length, int bc_min_qual, bool paired_end);
             ~BamDB() {
-//                close_connections();
                 sqlite3_close(conn);
                 sam_close(bam);
                 bam_hdr_destroy(header);
@@ -89,22 +81,16 @@ class BamDB {
             void create_reftable();
             int create_align_table();
             void index_cluster();
-            void merge_tables();
+            int merge_tables();
+            void drop_read_tables();
+            int create_rtree();
 
-            /* void close_connections() { */
-            /*     for (vector<sqlite*>::iterator iter=conns.begin(); iter != conns.end; ++iter) { */
-            /*         sqlite3_close(*iter); */
-            /*     } */
-            /* } */
     friend class dbRecord;
 };
 
-
-
-//int create_table(BamDB* bamdb);
 int create_index(BamDB* bamdb);
 int fill_db(BamDB* bamdb);
-template<typename TRecord>
-int fill_db_tid(BamDB* bamdb, TRecord* record, hts_itr_t* bam_itr);
+/* template<typename TRecord> */
+/* int fill_db_tid(BamDB* bamdb, TRecord* record, hts_itr_t* bam_itr); */
 
 #endif //BAM_SQL_H
