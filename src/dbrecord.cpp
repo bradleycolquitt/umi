@@ -280,13 +280,18 @@ int dbRecord0::set_positions(bam1_t* b) {
     }
 }
 
+void dbRecord0::set_chrom(BamDB* bamdb, int32_t tid){
+    //DEBUG_LOG(bamdb->get_chrom(tid));
+    strcpy(chrom, bamdb->get_chrom(tid));
+}
+
 dbRecord1::dbRecord1(BamDB* bamdb)
 : dbRecord0(bamdb)
 {
     const char* tail = 0;
 
     char insert_sql[BUFFER_SIZE];
-    sprintf(insert_sql, "INSERT INTO read1 VALUES (@IN, @FL, @CL, @TID, @HPOS, @TPOS, @STR, @BC, @UMI);");
+    sprintf(insert_sql, "INSERT INTO read1 VALUES (@IN, @FL, @CL, @CHR, @TID, @HPOS, @TPOS, @STR, @BC, @UMI);");
     sqlite3_prepare_v2(bamdb->get_conn(), insert_sql, BUFFER_SIZE, \
                        &insert_stmt, &tail);
 }
@@ -301,20 +306,34 @@ void dbRecord1::set_umi(BamDB* bamdb, bam1_t* b, int used_offset) {
 
 int dbRecord1::insert_to_db() {
     int result = 0;
+    // DEBUG_LOG(instrument);
+    // DEBUG_LOG(flowcell);
+    // DEBUG_LOG(chrom);
+    // DEBUG_LOG(tid);
+    // DEBUG_LOG(strand);
+    // DEBUG_LOG(read_pos[0]);
+    // DEBUG_LOG(read_pos[1]);
+    // DEBUG_LOG(bc);
+    // DEBUG_LOG(umi);
+
+
     sqlite3_bind_text(insert_stmt, 1, instrument, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(insert_stmt, 2, flowcell, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(insert_stmt, 3, cluster, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(insert_stmt, 4, tid);
-    sqlite3_bind_int(insert_stmt, 5, read_pos[0]);
-    sqlite3_bind_int(insert_stmt, 6, read_pos[1]);
-    sqlite3_bind_int(insert_stmt, 7, strand);
-    sqlite3_bind_int(insert_stmt, 8, bc);
-    sqlite3_bind_int(insert_stmt, 9, umi);
+    sqlite3_bind_text(insert_stmt, 4, chrom, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(insert_stmt, 5, tid);
+    sqlite3_bind_int(insert_stmt, 6, read_pos[0]);
+    sqlite3_bind_int(insert_stmt, 7, read_pos[1]);
+    sqlite3_bind_int(insert_stmt, 8, strand);
+    sqlite3_bind_int(insert_stmt, 9, bc);
+    sqlite3_bind_int(insert_stmt, 10, umi);
 
     result = sqlite3_step(insert_stmt);
     //if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
     if (result != SQLITE_DONE) {
-        fprintf(stderr, "Insertion error (%d): read1, %s\n", result, cluster);
+        throw sql_exception(result, sqlite3_errmsg(bamdb->get_conn()));
+        //fprintf(stderr, "Insertion error (%d): read1, %s\n", result, cluster);
+
     }
 
     sqlite3_reset(insert_stmt);
@@ -328,7 +347,7 @@ dbRecord2::dbRecord2(BamDB* bamdb)
 {
     const char* tail = 0;
     char insert_sql[BUFFER_SIZE];
-    sprintf(insert_sql, "INSERT INTO read2 VALUES (@IN, @FL, @CL, @TID, @HPOS, @TPOS, @STR);");
+    sprintf(insert_sql, "INSERT INTO read2 VALUES (@IN, @FL, @CL, @CHR, @TID, @HPOS, @TPOS, @STR);");
     sqlite3_prepare_v2(bamdb->get_conn(), insert_sql, BUFFER_SIZE, \
                        &insert_stmt, &tail);
 }
@@ -338,13 +357,15 @@ int dbRecord2::insert_to_db() {
     sqlite3_bind_text(insert_stmt, 1, instrument, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(insert_stmt, 2, flowcell, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(insert_stmt, 3, cluster, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(insert_stmt, 4, tid);
-    sqlite3_bind_int(insert_stmt, 5, read_pos[0]);
-    sqlite3_bind_int(insert_stmt, 6, read_pos[1]);
-    sqlite3_bind_int(insert_stmt, 7, strand);
+    sqlite3_bind_text(insert_stmt, 4, chrom, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(insert_stmt, 5, tid);
+    sqlite3_bind_int(insert_stmt, 6, read_pos[0]);
+    sqlite3_bind_int(insert_stmt, 7, read_pos[1]);
+    sqlite3_bind_int(insert_stmt, 8, strand);
 
     if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
-        fprintf(stderr, "Insertion error (%d): read1, %s\n", result, cluster);
+        throw sql_exception(result, sqlite3_errmsg(bamdb->get_conn()));
+        //fprintf(stderr, "Insertion error (%d): read2, %s\n", result, cluster);
     }
     sqlite3_clear_bindings(insert_stmt);
     sqlite3_reset(insert_stmt);

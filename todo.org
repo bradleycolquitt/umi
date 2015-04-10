@@ -2,4 +2,11 @@
 ** although current algo might be fine 
 * Include read2
 ** In database
+*** Create BamDB_PE class
+**** PE option in load2db creates this class
+**** Restructure methods that require SE/PE distinctation as class functions for BamDB and BamDB_PE
+
 ** In annotation join
+* alter merge so that new database is created for join
+** then delete individual reads db
+*** takes forever to drop a table in sqlite

@@ -3,8 +3,10 @@
 
 #include <string_utils.h>
 #include <bam_utils.h>
+#include <sql_utils.h>
 #include <dbrecord.h>
 #include <sqlite_wrapper.h>
+#include <timing.h>
 #include <sqlite3.h>
 #include <htslib/sam.h>
 #include <boost/regex.hpp>
@@ -26,7 +28,6 @@ using namespace std;
 #define DEBUG_LOG(x)
 #endif
 
-
 /*
 Iter through Bam
     Insert into read1/2 dbs
@@ -38,11 +39,16 @@ class BamDB {
     private:
             const char* bam_fname;
             const char* dest_fname;
+            char * dest_merge;
+            char* dest_tmp;
             const bool paired_end;
             samFile* bam;
             bam_hdr_t* header;
+            map<int,char*> chroms;
             hts_idx_t* idx;
-            sqlite3* conn;           //connection to merge db
+            map<int,sqlite3*> conns;
+            /* sqlite3* tmp_conn; */
+            /* sqlite3* merge_conn; */
             sqlite3_stmt* stmt;
 
             vector<vector<int> > barcodes;
@@ -53,7 +59,8 @@ class BamDB {
     public:
             BamDB(const char* bam_fname, const char* final_fname, const char* barcodes_fname, int umi_length, int bc_min_qual, bool paired_end);
             ~BamDB() {
-                sqlite3_close(conn);
+                sqlite3_close(conns[0]);
+                sqlite3_close(conns[1]);
                 sam_close(bam);
                 bam_hdr_destroy(header);
                 hts_idx_destroy(idx);
@@ -68,7 +75,11 @@ class BamDB {
             bam_hdr_t* get_header() { return header; }
             hts_idx_t* get_idx() { return idx; }
             int get_rlen(int tid) { return header->target_len[tid]; }
-            sqlite3* get_conn() { return conn; }
+            char * get_chrom(int tid) { return chroms[tid]; }
+            const char * get_dest_name() { return dest_fname; }
+            char * get_tmp_name() { return dest_tmp; }
+            sqlite3* get_conn() { return conns[0]; }
+            sqlite3* get_conn(int index) { return conns[index]; }
             sqlite3_stmt* get_stmt() { return stmt; }
 
             int get_sequence_pos(int i) { return sequence_pos[i]; }
@@ -77,13 +88,16 @@ class BamDB {
             int get_bc_min_qual() { return bc_min_qual; }
 
             /* Other */
-            // Create 'reference table' containing human-readable reference names and tid.
+                // Create 'reference table' containing human-readable reference names and tdd.
+            void close_conn(int index);
             void create_reftable();
             int create_align_table();
             void index_cluster();
             int merge_tables();
             void drop_read_tables();
+            void aggregate_umi();
             int create_rtree();
+            int create_index();
 
     friend class dbRecord;
 };

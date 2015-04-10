@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import os
+import sys
 import pysam
 import pdb
 import sqlite3
@@ -85,7 +86,7 @@ cdef class bam_db:
 
         for read in self.bam.fetch():
             if not read.is_unmapped:
-
+#                if readno == 10: sys.exit()
                 # Filter out reads with insertions, deletions, or reference skips
                 cigarstring = read.cigarstring
                 if re_cigar.search(cigarstring): continue
@@ -115,6 +116,7 @@ cdef class bam_db:
                                          (5,11),
                                          self.nofilter_bc,
                                          self.barcodes)
+#                print bc
                 umi = bc_util.get_umi(seq,
                                       cqual,
                                       (0,5),
@@ -134,7 +136,6 @@ cdef class bam_db:
                 self.c.execute("BEGIN TRANSACTION")
                 readno = 0
         self.c.execute("COMMIT")
-
 
         # Create index for name, chrom, position
         self.create_indices()

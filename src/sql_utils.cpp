@@ -1,3 +1,5 @@
+#include <sql_utils.h>
+
 // /*
 // ** Argument pStmt is a prepared SQL statement. This function compiles
 // ** an EXPLAIN QUERY PLAN command to report on the prepared statement,
@@ -30,3 +32,27 @@
 
 //   return sqlite3_finalize(pExplain);
 // }
+
+string get_selfpath() {
+    char buff[BUFFER_SIZE];
+    ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff)-1);
+    if (len != -1) {
+        buff[len] = '\0';
+        return string(buff);
+    } else {
+        cerr << "File not found." << endl;
+        return NULL;
+    }
+}
+
+const char* read_sql(const char* fname) {
+    boost::filesystem::path p(get_selfpath());
+    boost::filesystem::path dir = p.parent_path();
+    string path = dir.string();
+    path = path + fname;
+
+    ifstream sql_file(path);
+    string sql_contents((istreambuf_iterator<char>(sql_file)), istreambuf_iterator<char>());
+    const char* sql = sql_contents.c_str();
+    return(sql);
+    }

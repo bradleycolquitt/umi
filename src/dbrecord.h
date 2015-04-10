@@ -95,6 +95,7 @@ class dbRecord0 {
         char instrument[BUFFER_SIZE];
         char flowcell[BUFFER_SIZE];
         char cluster[BUFFER_SIZE];
+        char chrom[BUFFER_SIZE];
         vector<uint32_t> read_pos;
         bool strand;
     public:
@@ -109,6 +110,7 @@ class dbRecord0 {
 
         /* Settors */
         int set_positions(bam1_t* b);
+        void set_chrom(BamDB* bamdb, int32_t tid);
 
         /* Gettors */
         const char* get_cluster() { return cluster; }

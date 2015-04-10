@@ -1,15 +1,16 @@
-CREATE TABLE IF NOT EXISTS merge (instrument text, flowcell text, cluster text, tid int, hpos1 int, tpos1 int, hpos2, tpos2, strand int, bc int, umi int);
+CREATE TABLE IF NOT EXISTS merge (instrument text, flowcell text, cluster text, chrom text, tid int, lpos1 int, lpos2 int, rpos1, rpos2, strand int, bc int, umi int);
 
 INSERT INTO merge
     SELECT
         read1.instrument,
         read1.flowcell,
         read1.cluster,
+        read1.chrom,
         read1.tid,
-        read1.hpos,
-        read1.tpos,
-        read2.hpos,
-        read2.tpos,
+        CASE WHEN read1.strand IS 0 THEN read1.hpos ELSE read2.hpos END,
+        CASE WHEN read1.strand IS 0 THEN read1.tpos ELSE read2.tpos END,
+        CASE WHEN read1.strand IS 0 THEN read2.tpos ELSE read1.tpos END,
+        CASE WHEN read1.strand IS 0 THEN read2.hpos ELSE read1.hpos END,
         read1.strand,
         read1.bc,
         read1.umi

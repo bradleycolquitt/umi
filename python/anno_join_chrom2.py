@@ -21,53 +21,10 @@ import pdb
 import argparse
 import traceback as tb
 
-from sql_utils import printExplainQueryPlan
+from sql_utils import *
+EXEC_PATH = os.path.dirname(os.path.realpath(__file__))
 
 debug = True
-
-statement_summary = '''
-               SELECT
-                   merge.bc,
-                   anno.genes.chrom,
-                   merge.hpos,
-                   merge.tpos,
-                   count(merge.umi) as total_umi,
-                   count(case when merge.strand = anno.genes.strand then merge.umi end)
-                       as total_umi_same_strand,
-                   count(distinct merge.umi) as unique_umi,
-                   anno.genes.gene_id,
-                   anno.genes.transcript_id,
-                   anno.genes.element
-               FROM
-                   merge, pos_rtree WHERE merge.rowid = pos_rtree.id
-                   JOIN reference ON merge.tid = reference.tid
-                   JOIN anno.genes ON reference.name = anno.genes.chrom
-                        AND anno.genes.build=:build
-                        AND
-                        (
-                        pos_rtree.lpos1 BETWEEN anno.genes.start AND anno.genes.end OR
-                        pos_rtree.rpos2 BETWEEN anno.genes.start AND anno.genes.end
-                        )
-               GROUP BY
-                   merge.bc, merge.tid, merge.rpos1
-
-         '''
-
-create_table_full = '''
-               CREATE TABLE test
-                   (bc int,
-                   chrom int,
-                   lpos1 int,
-                   lpos2 int,
-                   rpos1 int,
-                   rpos2 int,
-                   umi int,
-                   umi_count int,
-                   total_umi_same_strand int,
-                   gene_id text,
-                   transcript_id test,
-                   element test)
-                   '''
 
 def execute_join(db, build, statement, anno):
     conn = sqlite3.connect(db)
@@ -84,18 +41,20 @@ def execute_join(db, build, statement, anno):
     header = ""
     out = "_".join([db, build])
     create_table = ""
+    sql = None
     if statement == "summary":
-        statement = statement_summary
+        sql = read_sql(EXEC_PATH + "/../sql/anno_join_summary.sql")
+
         header = "\t".join(["bc", "chrom", "lpos1", "lpos2", "rpos1", "rpos2",
                          "total_umi", "total_umi_same_strand", "unique_umi",
                          "gene_id", "transcript_id", "element"]) + "\n"
         out = out + "_summary.txt"
     elif statement == "full":
-        create_table = create_table_full
-        statement = statement_full
-        exec_path = os.path.dirname(os.path.realpath(__file__))
-        with open(exec_path + "/../sql/anno_join_full.sql") as infile:
-            sql = infile.read()
+        #create_table = create_table_full
+
+        sql = read_sql(EXEC_PATH + "/../sql/anno_join_full2.sql")
+        sql = sql % build
+
         header = "\t".join(["bc", "chrom", "lpos1", "lpos2", "rpos1", "rpos2", "umi",
                          "total_umi", "total_umi_same_strand",
                          "gene_id", "transcript_id", "element"]) + "\n"
@@ -114,13 +73,17 @@ def execute_join(db, build, statement, anno):
     # Execute main join query
     if dec == "y":
         try:
-            #c.execute('DROP TABLE IF EXISTS %s' % "test")
+            c.execute('DROP TABLE IF EXISTS %s' % build)
             #res = c.execute(create_table, {"build":build})
-            #res = c.execute(create_table)
+            create_sql = read_sql(EXEC_PATH + "/../sql/create_table_full.sql") % build
+            res = c.execute(create_sql)
             # Print out pla
             if (debug):
                 printExplainQueryPlan(conn, sql, {"build":build})
+
+            c.execute("BEGIN TRANSACTION")
             res = c.execute(sql, {"build":build})
+            conn.commit()
         except sqlite3.OperationalError:
             print tb.print_exc()
             sys.exit(1)

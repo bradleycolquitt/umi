@@ -21,7 +21,7 @@ TEST_SERIAL_SRCS = src/test_serial.cpp src/bam_sql_serial.cpp
 MERGE_SRCS = src/load2db_merge.cpp src/bam_sql_serial2.cpp
 TEST_MERGE_SRCS = src/test_merge.cpp src/bam_sql_serial2.cpp
 
-COMMON_SRCS = src/bam_utils.cpp src/dbrecord.cpp src/sql_utils.cpp src/string_utils.cpp src/sqlite_wrapper.cpp
+COMMON_SRCS = src/bam_utils.cpp src/dbrecord.cpp src/sql_utils.cpp src/string_utils.cpp src/sqlite_wrapper.cpp src/timing.cpp
 
 COMMON_OBJS := ${COMMON_SRCS:.cpp=.o}
 TARGET_OBJ = ${TARGET_SRCS:.cpp=.o}
