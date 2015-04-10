@@ -1,6 +1,6 @@
 #include <dbrecord.h>
 //#include <bam_utils.h>
-//#include <bam_sql_serial2.h>
+//#include <bam_sql_merge.h>
 //#include <string_utils.h>
 //#include <sqlite3.h>
 //#include <cstring>

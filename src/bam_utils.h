@@ -1,7 +1,7 @@
 #ifndef BAM_UTIL_H
 #define BAM_UTIL_H
 
-//#include <bam_sql_serial2.h>
+//#include <bam_sql_merge.h>
 #include <string_utils.h>
 #include <dbrecord.h>
 #include <htslib/sam.h>

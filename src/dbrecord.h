@@ -3,7 +3,7 @@
 
 class BamDB;
 
-#include <bam_sql_serial2.h>
+#include <bam_sql_merge.h>
 #include <string_utils.h>
 #include <bam_utils.h>
 

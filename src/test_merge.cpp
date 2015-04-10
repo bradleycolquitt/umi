@@ -1,6 +1,6 @@
 #include <htslib/sam.h>
 #include <dbrecord.h>
-#include <bam_sql_serial2.h>
+#include <bam_sql_merge.h>
 #include <bam_utils.h>
 #include <iostream>
 #include <sqlite3.h>

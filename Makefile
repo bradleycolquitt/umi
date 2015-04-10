@@ -18,8 +18,8 @@ TEST_PE_SRCS = src/test_pe.cpp src/bam_sql.cpp
 SERIAL_SRCS = src/load2db_serial.cpp src/bam_sql_serial.cpp
 TEST_SERIAL_SRCS = src/test_serial.cpp src/bam_sql_serial.cpp
 
-MERGE_SRCS = src/load2db_merge.cpp src/bam_sql_serial2.cpp
-TEST_MERGE_SRCS = src/test_merge.cpp src/bam_sql_serial2.cpp
+MERGE_SRCS = src/load2db_merge.cpp src/bam_sql_merge.cpp
+TEST_MERGE_SRCS = src/test_merge.cpp src/bam_sql_merge.cpp
 
 COMMON_SRCS = src/bam_utils.cpp src/dbrecord.cpp src/sql_utils.cpp src/string_utils.cpp src/sqlite_wrapper.cpp src/timing.cpp
 
@@ -59,11 +59,11 @@ test_serial: CPPFLAGS += -DDEBUG -g
 test_serial: COMMON_SRCS += src/test_serial.cpp src/bam_sql_serial.cpp
 test_serial: $(TEST_SERIAL_NAME)
 
-merge: COMMON_SRCS += src/load2db_merge.cpp src/bam_sql_serial2.cpp
+merge: COMMON_SRCS += src/load2db_merge.cpp src/bam_sql_merge.cpp
 merge: $(MERGE_NAME)
 
 test_merge: CPPFLAGS += -DDEBUG -g
-test_merge: COMMON_SRCS += src/test_merge.cpp src/bam_sql_serial2.cpp
+test_merge: COMMON_SRCS += src/test_merge.cpp src/bam_sql_merge.cpp
 test_merge: $(TEST_MERGE_NAME)
 
 $(TARGET_NAME): $(TARGET_OBJ) $(COMMON_OBJS)

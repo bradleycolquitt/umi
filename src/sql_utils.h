@@ -1,7 +1,7 @@
 #ifndef SQL_UTILS_H
 #define SQL_UTILS_H
 
-#include <bam_sql_serial2.h>
+#include <bam_sql_merge.h>
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <string>

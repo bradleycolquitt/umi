@@ -1,5 +1,5 @@
 #include <htslib/sam.h>
-#include <bam_sql_serial2.h>
+#include <bam_sql_merge.h>
 #include <bam_utils.h>
 #include <iostream>
 #include <gperftools/profiler.h>
