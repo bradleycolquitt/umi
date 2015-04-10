@@ -48,11 +48,13 @@ string get_selfpath() {
 const char* read_sql(const char* fname) {
     boost::filesystem::path p(get_selfpath());
     boost::filesystem::path dir = p.parent_path();
+    dir /= fname;
     string path = dir.string();
-    path = path + fname;
 
     ifstream sql_file(path);
     string sql_contents((istreambuf_iterator<char>(sql_file)), istreambuf_iterator<char>());
+    //DEBUG_LOG(sql_contents);
     const char* sql = sql_contents.c_str();
+    //DEBUG_LOG(sql);
     return(sql);
     }

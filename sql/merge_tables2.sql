@@ -1,4 +1,4 @@
-ATTACH DATABASE "merge.db" AS merge_db;
+ATTACH DATABASE "%s" AS merge_db;
 
 CREATE TABLE IF NOT EXISTS merge_db.merge (instrument text, flowcell text, cluster text, chrom text, tid int, lpos1 int, lpos2 int, rpos1, rpos2, strand int, bc int, umi int);
 
