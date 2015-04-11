@@ -282,7 +282,6 @@ int dbRecord0::set_positions(bam1_t* b) {
 }
 
 void dbRecord0::set_chrom(BamDB* bamdb, int32_t tid){
-    DEBUG_LOG(bamdb->get_chrom(tid));
     strcpy(chrom, bamdb->get_chrom(tid));
 }
 

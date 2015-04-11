@@ -52,7 +52,7 @@ def execute_join(db, build, statement, anno):
     elif statement == "full":
         #create_table = create_table_full
 
-        sql = read_sql(EXEC_PATH + "/../sql/anno_join_full2.sql")
+        sql = read_sql(EXEC_PATH + "/../sql/anno_join_full3.sql")
         sql = sql % build
 
         header = "\t".join(["bc", "chrom", "lpos1", "lpos2", "rpos1", "rpos2", "umi",
@@ -75,7 +75,7 @@ def execute_join(db, build, statement, anno):
         try:
             c.execute('DROP TABLE IF EXISTS %s' % build)
             #res = c.execute(create_table, {"build":build})
-            create_sql = read_sql(EXEC_PATH + "/../sql/create_table_full.sql") % build
+            create_sql = read_sql(EXEC_PATH + "/../sql/create_table_full3.sql") % build
             res = c.execute(create_sql)
             # Print out pla
             if (debug):

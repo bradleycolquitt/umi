@@ -5,5 +5,4 @@ CREATE TABLE IF NOT EXISTS %s
                    unique_umi_strand int,
                    gene_id text,
                    transcript_id text,
-                   gene_strand text,
-                   element text);
+                   gene_strand text);

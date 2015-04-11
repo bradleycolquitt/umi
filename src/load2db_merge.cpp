@@ -89,6 +89,7 @@ int main(int argc, char** argv) {
     BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_length, bc_min_qual, true);
 
     fill_db(bamdb);
+    delete bamdb;
 //    bamdb->create_reftable();
 //    create_index(bamdb);
 

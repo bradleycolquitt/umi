@@ -59,7 +59,7 @@ test_serial: CPPFLAGS += -DDEBUG -g
 test_serial: COMMON_SRCS += test_serial.cpp bam_sql_serial.cpp
 test_serial: $(TEST_SERIAL_NAME)
 
-merge: CPPFLAGS += -DDEBUG
+merge: CPPFLAGS += -DDEBUG -g
 merge: COMMON_SRCS += load2db_merge.cpp bam_sql_merge.cpp
 merge: $(MERGE_NAME)
 
