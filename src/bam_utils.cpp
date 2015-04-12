@@ -142,7 +142,7 @@ int ShiftAdd(int sum, int digit) {
 }
 
 //intended for umi
-int get_sequence(bam1_t* b, int start, int end, int used_offset) {
+uint32_t get_sequence(bam1_t* b, int start, int end, int used_offset) {
     uint8_t* seq = bam_get_seq(b);
     uint8_t* qual = bam_get_qual(b);
 
@@ -166,18 +166,33 @@ int get_sequence(bam1_t* b, int start, int end, int used_offset) {
     if (min < 20) {
         return 0;
     } else {
-        vector<int> umi_int(local_end - local_start + 1 + d, 0);
+        vector<uint8_t> umi_int(local_end - local_start + 1 + d, 0);
         size_t umi_int_size = umi_int.size();
         for (unsigned int j = 0; j < (umi_int_size - d); ++j) {
-             umi_int[j + d] = (int)bam_seqi(seq, j + local_start);
+             umi_int[j + d] = (uint8_t)bam_seqi(seq, j + local_start);
         }
         // if offset truncates UMI, randomly assign base to truncated positions
         if (d > 0) {
-            int nuc_set[] = {1,2,4,8};
+            uint8_t nuc_set[] = {1,2,4,8};
             for (int i = 0; i < d; ++i) {
                 umi_int[i] = nuc_set[(int)(rand() % (sizeof(nuc_set) / sizeof(int)))];
             }
         }
-        return accumulate(umi_int.begin(), umi_int.end(), 0, ShiftAdd);
+        uint32_t umi(accumulate(umi_int.begin(), umi_int.end(), 0, ShiftAdd));
+        if (umi > 100000000) {
+            for (int i=0; i < umi_int_size; i++) {
+               cerr << umi_int[i];
+            }
+            cerr << "d: " << d << endl;
+            cerr << "start: " << start << endl;
+            cerr << "end: " << end << endl;
+            cerr << "used offset: " << used_offset << endl;
+            cerr << "local_start: " << local_start << endl;
+            cerr << "local_end: " << local_end << endl;
+            cerr << endl;
+            cerr << umi << endl;
+            exit(1);
+        }
+        return umi;
     }
 }

@@ -206,7 +206,7 @@ void BamDB::aggregate_umi() {
 
     }
     //sqlite3_open(dest_merge_c, &conns[1])
-    //const char* sql = read_sql("/sql/aggregate_umi3.sql");
+//const char* sql = read_sql("/sql/aggregate_umi3.sql");
     const char* sql = "INSERT INTO collapsed\
                        SELECT\
                            bc,\
@@ -306,7 +306,7 @@ int process_read1(BamDB* bamdb, dbRecord1* record ,bam1_t* b) {
     record->split_qname(b);
     record->set_positions(b);
 
-    int used_offset;
+    int used_offset = 0;
     record->set_bc(bamdb, b, &used_offset);
     record->set_umi(bamdb, b, used_offset);
 
