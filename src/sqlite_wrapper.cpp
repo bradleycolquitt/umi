@@ -6,9 +6,8 @@ void open_connection(const char* fname, sqlite3** conn, bool for_speed) {
     }
 
     if (for_speed) {
-        execute(*conn, "PRAGMA journal = OFF");
+        execute(*conn, "PRAGMA journal_mode = MEMORY");
         execute(*conn, "PRAGMA synchronous = OFF");
-        //execute(*conn, "PRAGMA synchronous = OFF");
     }
 }
 

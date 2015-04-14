@@ -52,8 +52,8 @@ def execute_join(db, build, statement, anno):
     elif statement == "full":
         #create_table = create_table_full
 
-        sql = read_sql(EXEC_PATH + "/../sql/anno_join_full3.sql")
-        sql = sql % build
+        sql = read_sql(EXEC_PATH + "/../sql/anno_join_full6.sql")
+        #sql = sql % build
 
         header = "\t".join(["bc", "chrom", "lpos1", "lpos2", "rpos1", "rpos2", "umi",
                          "total_umi", "total_umi_same_strand",
@@ -75,15 +75,23 @@ def execute_join(db, build, statement, anno):
         try:
             c.execute('DROP TABLE IF EXISTS %s' % build)
             #res = c.execute(create_table, {"build":build})
-            create_sql = read_sql(EXEC_PATH + "/../sql/create_table_full3.sql") % build
+            create_sql = read_sql(EXEC_PATH + "/../sql/create_table_full2.sql") % build
             res = c.execute(create_sql)
             # Print out pla
             if (debug):
                 printExplainQueryPlan(conn, sql, {"build":build})
-
-            c.execute("BEGIN TRANSACTION")
+            c.execute("PRAGMA synchronous = off")
+            c.execute("PRAGMA journal_mode = MEMORY")
             res = c.execute(sql, {"build":build})
-            conn.commit()
+            # pdb.set_trace()
+            # results = c.fetchall()
+
+            # insertion_sql = "INSERT INTO {0} VALUES(?,?,?,?,?,?,?,?)".format(build)
+            # c.execute("BEGIN TRANSACTION")
+            # for r in results:
+
+            #     c.execute(insertion_sql, r)
+            # conn.commit()
         except sqlite3.OperationalError:
             print tb.print_exc()
             sys.exit(1)
@@ -94,7 +102,7 @@ def execute_join(db, build, statement, anno):
         # for r1 in res.fetchall():
         #     out.write("\t".join(map(str, r1))+ "\n")
         # out.close()
-        conn.close()
+        # conn.close()
 
 
 def main(argv):

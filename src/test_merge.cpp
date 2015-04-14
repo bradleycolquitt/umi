@@ -4,8 +4,8 @@
 #include <bam_utils.h>
 #include <iostream>
 #include <sqlite3.h>
-//#define PROFILE
 
+#define PROFILE
 #ifdef PROFILE
 #include <gperftools/profiler.h>
 #include <gperftools/heap-profiler.h>
@@ -22,15 +22,15 @@ int main() {
     BamDB* bamdb = new BamDB(bam_fname, db_fname, "bc8", 8, 17, true);
 
     #ifdef PROFILE
-    //ProfilerStart("/home/brad/src/umi/profiling/test_merge_1M.prof");
-    HeapProfilerStart("/home/brad/src/umi/profiling/test_merge.heap");
+    ProfilerStart("/home/brad/src/umi/profiling/test_merge_1M.prof");
+    //HeapProfilerStart("/home/brad/src/umi/profiling/test_merge.heap");
     #endif
 
     fill_db(bamdb);
 //    bamdb->create_reftable();
     #ifdef PROFILE
-    //ProfilerStop();
-    HeapProfilerStop();
+    ProfilerStop();
+    //HeapProfilerStop();
     #endif
     delete bamdb;
 

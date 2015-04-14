@@ -28,6 +28,8 @@ BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes
 
     try {
         open_connection(tmp_path.string().c_str(), &conns[0], true);
+        //execute(&conns[0], "PRAGMA journal_mode = MEMORY");
+        //execute(&conns[0], "PRAGMA synchronous = OFF");
     } catch (sql_exception &e) {
         cerr << "! Error: opening databases, " << e.what() << endl;
     }
@@ -84,22 +86,47 @@ void BamDB::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
     }
 }
 
-int BamDB::create_align_table() {
+void BamDB::create_align_table() {
      char* read1_sql = sqlite3_mprintf("CREATE TABLE IF NOT EXISTS read1 (instrument text, flowcell text, cluster text, chrom text, tid int, hpos int, tpos int, strand int, bc int, umi int);");
-     char* read2_sql = sqlite3_mprintf("CREATE TABLE IF NOT EXISTS read2 (instrument text, flowcell text, cluster text, chrom text, tid int, hpos int, tpos int, strand int);");
+     char* read2_sql = sqlite3_mprintf("CREATE TABLE IF NOT EXISTS read2 (instrument text, flowcell text, cluster text, chrom text, tid int, hpos int, tpos int, strand int, isize int);");
 
     try {
         //sqlite3_exec(conn, read1_sql, NULL, NULL, NULL);
         execute(conns[0], read1_sql);
         execute(conns[0], read2_sql);
     } catch (sql_exception &e) {
-        cerr << "Read table creation error, " <<  e.what() << endl;
+        throw e;
+        //cerr << "Read table creation error, " <<  e.what() << endl;
         //exit(1);
     }
     cerr << "Read tables created." << endl;
-    return 0;
 }
 
+void BamDB::create_reftable() {
+    int result = 0;
+    const char* tail = 0;
+    int rc;
+    char ** names = header->target_name;
+
+    const char* reftable_sql = "CREATE TABLE IF NOT EXISTS reference (name text, tid int);";
+    execute(conns[1], reftable_sql);
+    cerr << "Reference table created successfully." << endl;
+
+    sqlite3_stmt* stmt;
+    char sql[BUFFER_SIZE];
+    sprintf(sql, "INSERT INTO reference (name, tid) VALUES (?, ?);");
+
+        sqlite3_prepare_v2(conns[1], sql, BUFFER_SIZE, &stmt, NULL);
+        for (int i = 0; i < header->n_targets; ++i) {
+            sqlite3_bind_text(stmt, 1, names[i], -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(stmt, 2, i);
+            if ((result = sqlite3_step(stmt)) < 100) {
+                throw sql_exception( result, sqlite3_errmsg(conns[0]));
+            };
+            sqlite3_reset(stmt);
+        }
+        sqlite3_finalize(stmt);
+}
 void BamDB::remove_tmp_files() {
     const boost::filesystem::path p(tmp_path);
     if (!boost::filesystem::remove(p)) {
@@ -108,10 +135,9 @@ void BamDB::remove_tmp_files() {
 }
 
 void BamDB::close_conn(int index) {
-    try {
-        sqlite3_close(conns[index]);
-    } catch (sql_exception &e) {
-        cerr << printf("Error closing connection %d, ", index) << e.what() << endl;
+    int result = 0;
+    if ((result = sqlite3_close(conns[index])) != SQLITE_OK) {
+        throw sql_exception(result, sqlite3_errmsg(conns[index]), "error closing");
     }
 }
 
@@ -120,7 +146,7 @@ void BamDB::index_cluster() {
     int result = 0;
 
     cout << "Indexing cluster.." << endl;
-    if ((result = sqlite3_exec(conns[0], "CREATE UNIQUE INDEX cluster_index1 ON read1 (cluster)", NULL, NULL, &err_msg)) != SQLITE_OK) {
+    if ((result = sqlite3_exec(conns[0], "CREATE INDEX cluster_index1 ON read1 (cluster)", NULL, NULL, &err_msg)) != SQLITE_OK) {
         fprintf(stderr, "SQL error (%d) on read1.cluster_index: %s \n", result, err_msg);
     }
     if ((result = sqlite3_exec(conns[0], "CREATE INDEX cluster_index2 ON read2 (cluster)", NULL, NULL, &err_msg)) != SQLITE_OK) {
@@ -129,22 +155,35 @@ void BamDB::index_cluster() {
     sqlite3_free(err_msg);
 }
 
-int BamDB::merge_tables() {
+void BamDB::merge_tables() {
     cout << "Merging reads..." << endl;
 
     int result = 0;
     string attach_db = "ATTACH DATABASE '%s' AS merge_db;";
     string attach_db_form = str(boost::format(attach_db) % merge_path.string());
     const char* attach_db_c = attach_db_form.c_str();
-    DEBUG_LOG(attach_db_c);
     if ((result = sqlite3_exec(conns[0], attach_db_c, NULL, NULL, NULL)) != SQLITE_OK) {
         throw sql_exception { result, sqlite3_errmsg(conns[0]), "attaching db"};
     }
 
-    const char* create_table = "CREATE TABLE IF NOT EXISTS merge_db.merge (instrument text, flowcell text, cluster text, chrom text, tid int, lpos1 int, lpos2 int, rpos1, rpos2, strand int, bc int, umi int);";
-    if ((result = sqlite3_exec(conns[0], create_table, NULL, NULL, NULL)) != SQLITE_OK) {
-        throw sql_exception { result, sqlite3_errmsg(conns[1]), "merge table create"};
-    }
+    const char* create_table = "CREATE TABLE IF NOT EXISTS merge_db.merge\
+                                    (instrument text,\
+                                    flowcell text,\
+                                    cluster text,\
+                                    chrom text,\
+                                    tid int,\
+                                    hpos1 int,\
+                                    tpos1 int,\
+                                    hpos2 int,\
+                                    tpos2 int,\
+                                    isize int,\
+                                    strand int,\
+                                    bc int,\
+                                    umi int);";
+    execute(conns[0], create_table);
+    // if ((result = sqlite3_exec(conns[0], create_table, NULL, NULL, NULL)) != SQLITE_OK) {
+    //     throw sql_exception { result, sqlite3_errmsg(conns[1]), "merge table create"};
+    // }
     sqlite3_exec(conns[0], "BEGIN", NULL, NULL, NULL);
     const char* insert_merge = "INSERT INTO merge_db.merge\
                                 SELECT\
@@ -153,149 +192,174 @@ int BamDB::merge_tables() {
                                     read1.cluster,\
                                     read1.chrom,\
                                     read1.tid,\
-                                    CASE WHEN read1.strand IS 0 THEN read1.hpos ELSE read2.hpos END,\
-                                    CASE WHEN read1.strand IS 0 THEN read1.tpos ELSE read2.tpos END,\
-                                    CASE WHEN read1.strand IS 0 THEN read2.tpos ELSE read1.tpos END,\
-                                    CASE WHEN read1.strand IS 0 THEN read2.hpos ELSE read1.hpos END,\
+                                    read1.hpos,\
+                                    read1.tpos,\
+                                    read2.hpos,\
+                                    read2.tpos,\
+                                    read2.isize,\
                                     read1.strand,\
                                     read1.bc,\
                                     read1.umi\
-                               FROM read1 LEFT JOIN read2 ON read1.cluster=read2.cluster;";
+                               FROM read1 JOIN read2 ON read1.cluster=read2.cluster;";
     if ((result = sqlite3_exec(conns[0], insert_merge, NULL, NULL, NULL)) != SQLITE_OK) {
         throw sql_exception { result, sqlite3_errmsg(conns[1]), "insert merge"};
     }
-
-        sqlite3_exec(conns[0], "COMMIT", NULL, NULL, NULL);
+    sqlite3_exec(conns[0], "COMMIT", NULL, NULL, NULL);
 
     cout << "Merge table created." << endl;
     cout << "Closing tmp database." << endl;
     sqlite3_close(conns[0]);
-
-    return 1;
 }
 
-void BamDB::aggregate_umi() {
+void BamDB::index_merge() {
+    open_connection(merge_path.string().c_str(), &conns[1], true);
+    //execute(conns[1], "CREATE INDEX merge_positions ON merge(lpos2, rpos1)");
+    //execute(conns[1], "CREATE INDEX merge_isize ON merge(isize)");
+    execute(conns[1], "CREATE INDEX merge_full ON merge(hpos1, chrom, bc, strand)");
+}
 
-    cout << "Aggregating reads to 'collapsed'" << endl;
+void BamDB::collapse_positions() {
+
+    cout << "Collapsing reads to 'collapsed'" << endl;
     int result = 0;
 
-    if ((result = sqlite3_open(merge_path.string().c_str(), &conns[1])) != SQLITE_OK) {
-        cerr << "! Error opening merge.db" << endl;
-        throw sql_exception { result, sqlite3_errmsg(conns[1])};
+    open_connection(merge_path.string().c_str(), &conns[1], true);
+    execute(conns[1], "BEGIN");
+    execute(conns[1], "DROP TABLE IF EXISTS collapsed;");
+    // sqlite3_exec(conns[1], "BEGIN", NULL, NULL, NULL);
+    // const char* drop_table = "DROP TABLE IF EXISTS collapsed;";
+    // if ((result = sqlite3_exec(conns[1], drop_table, NULL, NULL, NULL)) != SQLITE_OK) {
+    //     throw sql_exception { result, sqlite3_errmsg(conns[1])};
 
-    }
+    // }
 
-    sqlite3_exec(conns[1], "BEGIN", NULL, NULL, NULL);
-    const char* drop_table = "DROP TABLE IF EXISTS collapsed;";
-    if ((result = sqlite3_exec(conns[1], drop_table, NULL, NULL, NULL)) != SQLITE_OK) {
-        throw sql_exception { result, sqlite3_errmsg(conns[1])};
-
-    }
     const char* create_table = "CREATE TABLE IF NOT EXISTS collapsed (\
                                         bc int,\
-                                        chrom text,\
+                                        tid int,\
                                         lpos1 int,\
-                                        lpos2 int,\
-                                        rpos1 int,\
                                         rpos2 int,\
-                                        strand int,\
-                                        total_umi int);";
-    if ((result = sqlite3_exec(conns[1], create_table, NULL, NULL, NULL)) != SQLITE_OK) {
-       // DEBUG_LOG("Create table error");
-        throw sql_exception { result, sqlite3_errmsg(conns[1])};
+                                        isize int,\
+                                        strand int);";
+    execute(conns[1], create_table);
+    // if ((result = sqlite3_exec(conns[1], create_table, NULL, NULL, NULL)) != SQLITE_OK) {
+    //    // DEBUG_LOG("Create table error");
+    //     throw sql_exception { result, sqlite3_errmsg(conns[1])};
 
-    }
+    // }
     //sqlite3_open(dest_merge_c, &conns[1])
 //const char* sql = read_sql("/sql/aggregate_umi3.sql");
-    const char* sql = "INSERT INTO collapsed\
+    const char* insert_sql = "INSERT INTO collapsed\
                        SELECT\
                            bc,\
-                           chrom,\
-                           lpos1,\
-                           lpos2,\
-                           rpos1,\
-                           rpos2,\
-                           strand,\
-                           count(distinct umi)\
+                           tid,\
+                           CASE WHEN strand IS 0 THEN hpos1 ELSE hpos2 END as lpos1,\
+                           CASE WHEN strand IS 0 THEN hpos2 ELSE hpos1 END as rpos2,\
+                           isize, \
+                           strand\
                        FROM\
                            merge\
                        GROUP BY\
                            bc,\
-                           chrom,\
-                           lpos1,\
-                           rpos2,\
+                           tid,\
+                           hpos1,\
+                           hpos2,\
                            strand;";
+    execute(conns[1], insert_sql);
+    // if ((result = sqlite3_exec(conns[1], insert_sql, NULL, NULL, NULL)) != SQLITE_OK) {
+    //    // DEBUG_LOG("exec error");
+    //     throw sql_exception { result, sqlite3_errmsg(conns[1]), "insertion to collapsed"};
 
-    if ((result = sqlite3_exec(conns[1], sql, NULL, NULL, NULL)) != SQLITE_OK) {
-       // DEBUG_LOG("exec error");
-        throw sql_exception { result, sqlite3_errmsg(conns[1]), "insertion to collapsed"};
-
-    }
+    // }
     sqlite3_exec(conns[1], "COMMIT", NULL, NULL, NULL);
 }
 
-int BamDB::create_pos_indices() {
+void BamDB::create_pos_indices() {
     int result = 0;
     cout << "Indexing positions..." << endl;
-    if ((result = sqlite3_exec(conns[1], "CREATE INDEX pos_index1 ON merge (bc, chrom, lpos1, rpos2, strand)", NULL, NULL, NULL)) != SQLITE_OK) {
-        throw sql_exception { result, sqlite3_errmsg(conns[1]), "position index1" };
-    }
-    if ((result = sqlite3_exec(conns[1], "CREATE INDEX pos_index2 ON collapsed (bc, chrom, lpos1, rpos2, strand)", NULL, NULL, NULL)) != SQLITE_OK) {
-        throw sql_exception { result, sqlite3_errmsg(conns[1]), "position index2" };
-    }
-    return 0;
+    execute(conns[1], "CREATE INDEX pos_index1 ON merge (bc, chrom, hpos1, hpos2, strand)");
+    execute(conns[1], "CREATE INDEX pos_index2 ON collapsed (bc, chrom, lpos1, rpos2, strand)");
+    // if ((result = sqlite3_exec(conns[1], "CREATE INDEX pos_index1 ON merge (bc, chrom, lpos1, rpos2, strand)", NULL, NULL, NULL)) != SQLITE_OK) {
+    //     throw sql_exception { result, sqlite3_errmsg(conns[1]), "position index1" };
+    // }
+    // if ((result = sqlite3_exec(conns[1], "CREATE INDEX pos_index2 ON collapsed (bc, chrom, lpos1, rpos2, strand)", NULL, NULL, NULL)) != SQLITE_OK) {
+    //     throw sql_exception { result, sqlite3_errmsg(conns[1]), "position index2" };
+    // }
+
 }
 
-int BamDB::create_idcollapsed() {
+void BamDB::create_idcollapsed() {
     int result = 0;
     cout << "Adding idcollapse to merge..." << endl;
-    if ((result = sqlite3_exec(conns[1], "ALTER TABLE merge ADD COLUMN idcollapsed int", NULL, NULL, NULL)) != SQLITE_OK) {
-        throw sql_exception { result, sqlite3_errmsg(conns[1]), "add idcollapsed" };
-    }
+    execute(conns[1], "ALTER TABLE merge ADD COLUMN idcollapsed int");
+    // if ((result = sqlite3_exec(conns[1], "ALTER TABLE merge ADD COLUMN idcollapsed int", NULL, NULL, NULL)) != SQLITE_OK) {
+    //     throw sql_exception { result, sqlite3_errmsg(conns[1]), "add idcollapsed" };
+    // }
     const char* update = "UPDATE merge SET idcollapsed = \
                               (SELECT rowid FROM collapsed WHERE\
                                   merge.bc=collapsed.bc AND\
                                   merge.chrom=collapsed.chrom AND\
-                                  merge.lpos1=collapsed.lpos1 AND\
-                                  merge.rpos2=collapsed.rpos2 AND\
+                                  merge.hpos1=collapsed.lpos1 AND\
+                                  merge.hpos2=collapsed.rpos2 AND\
                                   merge.strand=collapsed.strand);";
-    if ((result = sqlite3_exec(conns[1], update, NULL, NULL, NULL)) != SQLITE_OK) {
-        throw sql_exception { result, sqlite3_errmsg(conns[1]), "update idcollapsed" };
-    }
-    return 0;
+    execute(conns[1], update);
+    // if ((result = sqlite3_exec(conns[1], update, NULL, NULL, NULL)) != SQLITE_OK) {
+    //     throw sql_exception { result, sqlite3_errmsg(conns[1]), "update idcollapsed" };
+    // }
 }
-int BamDB::create_rtree() {
+
+void BamDB::create_rtree() {
     cerr << "Creating rtree..." << endl;
-    try {
-        execute(conns[1], "CREATE VIRTUAL TABLE pos_rtree USING rtree_i32(id, lpos1, rpos2);");
-    } catch (sql_exception &e) {
-        cerr << "Error creating, " << e.what() << endl;
-    }
-    try {
-        execute(conns[1], "BEGIN TRANSACTION");
-        execute(conns[1], "INSERT INTO pos_rtree SELECT rowid, lpos1, rpos2 FROM collapsed;");
-        execute(conns[1], "END TRANSACTION");
-    } catch (sql_exception &e) {
-        cerr << "Error populating rtree, " << e.what() << endl;
-    }
+    execute(conns[1], "CREATE VIRTUAL TABLE pos_rtree USING rtree_i32(id, tid1, tid2, lpos1, rpos2, strand1, strand2);");
+    execute(conns[1], "BEGIN TRANSACTION");
+    execute(conns[1], "INSERT INTO pos_rtree SELECT rowid, tid, tid, lpos1, rpos2, strand, strand FROM collapsed;");
+    execute(conns[1], "END TRANSACTION");
     cerr << "Finished creating rtree..." << endl;
-
-    return 0;
 }
 
-int BamDB::create_index() {
+void BamDB::create_collapsed_index() {
     cout << "Creating indices..." << endl;
     try {
-        //execute(conns[1], "CREATE INDEX chrom_index ON merge(chrom);" );
-        execute(conns[1], "CREATE INDEX chrom_index ON collapsed(chrom);" );
-//        execute(conn, "CREATE INDEX info_index ON merge(bc, umi);" );
+        //execute(conns[1], "CREATE INDEX chrom_index ON collapsed(chrom);" );
+        //execute(conns[1], "CREATE INDEX collapsed_index ON collapsed(bc, chrom, lpos1, lpos2, strand);" );
+        execute(conns[1], "CREATE INDEX collapsed_isize ON collapsed(isize)");
+        execute(conns[1], "CREATE INDEX collapsed_index ON collapsed(lpos1, rpos2, chrom, lpos1, lpos2, strand);" );
     } catch (sql_exception &e) {
-        cerr << "Error creating indices, " << e.what() << endl;
+        throw e;
     }
-    //sqlite3_exec(conn, "CREATE INDEX chrom_index ON merge(chrom);", NULL, NULL, NULL);
-    //sqlite3_exec(conn, "CREATE INDEX bc_hpos ON align(bc, tid, hpos);", NULL, NULL, &err_msg);
-    return 0;
 }
+
+void BamDB::group_umi() {
+    cout << "Grouping umi..." << endl;
+
+    const char* create_table = "CREATE TABLE grouped (\
+                                    tid int,\
+                                    hpos1 int,\
+                                    strand int,\
+                                    unique_umi int,\
+                                    total_umi int\
+                                )";
+
+    execute(conns[1], create_table);
+
+    const char* group_umi = "INSERT INTO grouped\
+                             SELECT\
+                                tid,\
+                                hpos1,\
+                                strand,\
+                                count(distinct umi),\
+                                count(umi)\
+                                FROM\
+                                    merge\
+                                GROUP BY\
+                                tid,\
+                                hpos1,\
+                                strand;";
+    execute(conns[1], "BEGIN TRANSACTION");
+    execute(conns[1], group_umi);
+    execute(conns[1], "END TRANSACTION");
+    execute(conns[1], "CREATE INDEX grouped_pos ON grouped(hpos1, tid, strand);");
+}
+
 int process_read1(BamDB* bamdb, dbRecord1* record ,bam1_t* b) {
    // DEBUG_LOG("process read1");
     // continue if read has indels or skipped references
@@ -309,37 +373,32 @@ int process_read1(BamDB* bamdb, dbRecord1* record ,bam1_t* b) {
     int used_offset = 0;
     record->set_bc(bamdb, b, &used_offset);
     record->set_umi(bamdb, b, used_offset);
+    record->insert_to_db();
 
-    try {
-        record->insert_to_db();
-    } catch (sql_exception &e) {
-        cerr << "Read1 insertion error, " << e.what() << endl;
-
-    }
     return 0;
 }
 
-void process_read2(BamDB* bamdb, dbRecord2* record, bam1_t* b) {
+int process_read2(BamDB* bamdb, dbRecord2* record, bam1_t* b) {
    // DEBUG_LOG("process read2");
+   // continue if read has indels or skipped references
+    if (bad_cigar(b)) return 2;
+
+    // continue if mapped to more than one position
+    if (filter_multi_reads(b)) return 3;
     record->split_qname(b);
     record->set_positions(b);
-
-    try {
-        record->insert_to_db();
-    } catch (sql_exception &e) {
-        cerr << "Read2 insertion error, " << e.what() << endl;
-
-    }
+    record->set_isize(abs(b->core.isize));
+    record->insert_to_db();
 }
 
 int fill_reads_tid(BamDB* bamdb, dbRecord1* record1, dbRecord2* record2, hts_itr_t* bam_itr) {
    // DEBUG_LOG("fill reads tid");
     bam1_t* b = bam_init1();
     int result;
-    char* err_msg = 0;
+    //char* err_msg = 0;
 
-    sqlite3_exec(bamdb->get_conn(), "BEGIN TRANSACTION", NULL, NULL, &err_msg);
-
+    //sqlite3_exec(bamdb->get_conn(), "BEGIN TRANSACTION", NULL, NULL, &err_msg);
+    execute(bamdb->get_conn(), "BEGIN");
     while ((result = sam_itr_next(bamdb->get_bam(), bam_itr, b)) >= 0) {
         if (b->core.flag&BAM_FMUNMAP) continue;
         if ((b->core.flag&BAM_FREAD1) != 0) {
@@ -349,8 +408,9 @@ int fill_reads_tid(BamDB* bamdb, dbRecord1* record1, dbRecord2* record2, hts_itr
         }
     }
     bam_destroy1(b);
-    sqlite3_exec(bamdb->get_conn(), "END TRANSACTION", NULL, NULL, &err_msg);
-    sqlite3_free(err_msg);
+    execute(bamdb->get_conn(), "COMMIT");
+    //sqlite3_exec(bamdb->get_conn(), "END TRANSACTION", NULL, NULL, &err_msg);
+    //sqlite3_free(err_msg);
     return 0;
 }
 
@@ -382,36 +442,43 @@ int fill_db(BamDB* bamdb) {
     start = std::clock();
 
     try {
-        fill_reads(bamdb);
-        print_time(start);
+    fill_reads(bamdb);
+    print_time(start);
 
-        bamdb->index_cluster();
-        print_time(start);
+    bamdb->index_cluster();
+    print_time(start);
 
-        bamdb->merge_tables();
-        print_time(start);
+    bamdb->merge_tables();
+    print_time(start);
 
-        bamdb->close_conn(0);
-        bamdb->aggregate_umi();
-        print_time(start);
+    // bamdb->index_merge();
+    // print_time(start);
+    //bamdb->close_conn(0);
+    bamdb->collapse_positions();
+    print_time(start);
 
-        bamdb->create_pos_indices();
-        print_time(start);
+    bamdb->create_rtree();
+    print_time(start);
 
-        bamdb->create_idcollapsed();
-        print_time(start);
+    bamdb->group_umi();
+    print_time(start);
 
-        bamdb->create_rtree();
-        print_time(start);
+    bamdb->create_reftable();
+    print_time(start);
+    // bamdb->create_idcollapsed();
+    // print_time(start);
 
-        bamdb->create_index();
-        print_time(start);
+    // bamdb->create_pos_indices();
+    // print_time(start);
 
-        const boost::filesystem::path m(bamdb->get_merge_path());
-        const boost::filesystem::path d(bamdb->get_dest_path());
-        boost::filesystem::rename(m, d);
+    // bamdb->create_collapsed_index();
+    // print_time(start);
 
-    } catch (sql_exception &e) {
+    const boost::filesystem::path m(bamdb->get_merge_path());
+    const boost::filesystem::path d(bamdb->get_dest_path());
+    boost::filesystem::rename(m, d);
+
+   }   catch (sql_exception &e) {
         cerr << " ! Error: " << e.what() << endl;
         delete bamdb;
         exit(1);
