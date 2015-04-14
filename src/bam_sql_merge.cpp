@@ -1,3 +1,67 @@
+/***************************
+*
+*    Table organization
+*    merge - Merged reads, full info
+         instrument text
+         flowcell text
+         cluster text
+         chrom text
+         tid int
+         hpos1 int
+         tpos1 int
+         hpos2 int
+         tpos2 int
+         isize int
+         strand int
+         bc int
+         umi int
+         INDICES:
+
+     collapsed - Reads collapsed to positions defined by
+                 read1 and read2 heads
+         bc int
+         tid int
+         lpos1 int
+         rpos2 int
+         isize int
+         strand int
+         pos_id int -- tmp.rowid
+
+     pos_rtree - R*Tree for collapsed tid, pos, and strand
+         id -- correspondds to collapsed rowid
+         tid1
+         tid2
+         lpos1
+         rpos2
+         strand1
+         strand2
+
+     tmp -
+         bc int
+         tid int
+         hpos1 int
+         strand int
+         INDICES:
+             bc, tid, hpos1, strand
+
+     grouped - UMI counts by reaad1 pos
+         //tid int
+         //hpos1 int
+         //strand int
+         pos_id int -- from tmp.rowid
+         unique_umi int
+         total_umi int\
+         INDICES:
+             pos_id
+
+General approach:
+    Find collapsed positions that intersect with annotation gene set.
+    Identify grouped rows that correspond to identified collapsed positions
+    Filter grouped rows with at least X number of supporting positions
+    Sum unique_umi of grouped rows
+*/
+
+
 #include <bam_sql_merge.h>
 
 using namespace std;
@@ -239,7 +303,8 @@ void BamDB::collapse_positions() {
                                         lpos1 int,\
                                         rpos2 int,\
                                         isize int,\
-                                        strand int);";
+                                        strand int,\
+                                        pos_id int);";
     execute(conns[1], create_table);
     // if ((result = sqlite3_exec(conns[1], create_table, NULL, NULL, NULL)) != SQLITE_OK) {
     //    // DEBUG_LOG("Create table error");
@@ -248,23 +313,49 @@ void BamDB::collapse_positions() {
     // }
     //sqlite3_open(dest_merge_c, &conns[1])
 //const char* sql = read_sql("/sql/aggregate_umi3.sql");
-    const char* insert_sql = "INSERT INTO collapsed\
-                       SELECT\
-                           bc,\
-                           tid,\
-                           CASE WHEN strand IS 0 THEN hpos1 ELSE hpos2 END as lpos1,\
-                           CASE WHEN strand IS 0 THEN hpos2 ELSE hpos1 END as rpos2,\
-                           isize, \
-                           strand\
-                       FROM\
-                           merge\
+
+
+    /* Group by bc, tid, hpos1, strand */
+    execute(conns[1], "CREATE TEMP TABLE tmp AS SELECT bc, tid, hpos1, strand FROM merge\
                        GROUP BY\
                            bc,\
                            tid,\
-                           hpos1,\
-                           hpos2,\
-                           strand;";
+                           hpos1, \
+                           strand;");
+
+    execute(conns[1], "CREATE INDEX tmp_pos ON tmp(bc,tid,hpos1,strand);");
+
+    const char* insert_sql = "INSERT INTO collapsed\
+                       SELECT\
+                           merge.bc,\
+                           merge.tid,\
+                           CASE WHEN merge.strand IS 0 THEN merge.hpos1 ELSE merge.hpos2 END as lpos1,\
+                           CASE WHEN merge.strand IS 0 THEN merge.hpos2 ELSE merge.hpos1 END as rpos2,\
+                           isize, \
+                           merge.strand,\
+                           tmp.rowid\
+                       FROM\
+                           merge JOIN tmp\
+                           WHERE merge.bc = tmp.bc \
+                                 AND merge.tid = tmp.tid \
+                                 AND merge.hpos1 = tmp.hpos1 \
+                                 AND merge.strand = tmp.strand \
+                       GROUP BY       \
+                           merge.bc,\
+                           merge.tid,\
+                           merge.hpos1,\
+                           merge.hpos2,\
+                           merge.strand;";
     execute(conns[1], insert_sql);
+
+    // const char* pos_id = "UPDATE collapsed SET COLUMN pos_id = (SELECT\
+    //                           tmp.rowid FROM tmp WHERE\
+    //                           bc=bc,\
+    //                           tid=tid,\
+    //                           CASE
+
+
+    //"
     // if ((result = sqlite3_exec(conns[1], insert_sql, NULL, NULL, NULL)) != SQLITE_OK) {
     //    // DEBUG_LOG("exec error");
     //     throw sql_exception { result, sqlite3_errmsg(conns[1]), "insertion to collapsed"};
@@ -278,13 +369,6 @@ void BamDB::create_pos_indices() {
     cout << "Indexing positions..." << endl;
     execute(conns[1], "CREATE INDEX pos_index1 ON merge (bc, chrom, hpos1, hpos2, strand)");
     execute(conns[1], "CREATE INDEX pos_index2 ON collapsed (bc, chrom, lpos1, rpos2, strand)");
-    // if ((result = sqlite3_exec(conns[1], "CREATE INDEX pos_index1 ON merge (bc, chrom, lpos1, rpos2, strand)", NULL, NULL, NULL)) != SQLITE_OK) {
-    //     throw sql_exception { result, sqlite3_errmsg(conns[1]), "position index1" };
-    // }
-    // if ((result = sqlite3_exec(conns[1], "CREATE INDEX pos_index2 ON collapsed (bc, chrom, lpos1, rpos2, strand)", NULL, NULL, NULL)) != SQLITE_OK) {
-    //     throw sql_exception { result, sqlite3_errmsg(conns[1]), "position index2" };
-    // }
-
 }
 
 void BamDB::create_idcollapsed() {
@@ -331,33 +415,43 @@ void BamDB::create_collapsed_index() {
 void BamDB::group_umi() {
     cout << "Grouping umi..." << endl;
 
+    // const char* create_table = "CREATE TABLE grouped (\
+    //                                 tid int,\
+    //                                 hpos1 int,\
+    //                                 strand int,\
+    //                                 unique_umi int,\
+    //                                 total_umi int\
+    //                             )";
+
     const char* create_table = "CREATE TABLE grouped (\
-                                    tid int,\
-                                    hpos1 int,\
-                                    strand int,\
+                                    pos_id int,\
                                     unique_umi int,\
-                                    total_umi int\
+                                    total_umi int,\
+                                    FOREIGN KEY(pos_id)\
+                                        REFERENCES collapsed(pos_id)\
                                 )";
 
     execute(conns[1], create_table);
 
     const char* group_umi = "INSERT INTO grouped\
                              SELECT\
-                                tid,\
-                                hpos1,\
-                                strand,\
-                                count(distinct umi),\
-                                count(umi)\
+                                tmp.rowid as pos_id ,\
+                                count(distinct umi) as unique_umi,\
+                                count(umi) as total_umi\
                                 FROM\
-                                    merge\
+                                    merge JOIN tmp ON\
+                                        merge.bc = tmp.bc\
+                                        AND merge.tid = tmp.tid\
+                                        AND merge.hpos1 = tmp.hpos1\
+                                        AND merge.strand = tmp.strand        \
                                 GROUP BY\
-                                tid,\
-                                hpos1,\
-                                strand;";
+                                    tmp.rowid\
+                                ";
+
     execute(conns[1], "BEGIN TRANSACTION");
     execute(conns[1], group_umi);
     execute(conns[1], "END TRANSACTION");
-    execute(conns[1], "CREATE INDEX grouped_pos ON grouped(hpos1, tid, strand);");
+    execute(conns[1], "CREATE INDEX grouped_pos ON grouped(pos_id);");
 }
 
 int process_read1(BamDB* bamdb, dbRecord1* record ,bam1_t* b) {
