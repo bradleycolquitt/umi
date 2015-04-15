@@ -1,11 +1,4 @@
 #include <dbrecord.h>
-//#include <bam_utils.h>
-//#include <bam_sql_merge.h>
-//#include <string_utils.h>
-//#include <sqlite3.h>
-//#include <cstring>
-
-
 
 void dbRecord0::split_qname(bam1_t* b) {
     char* qname = bam_get_qname(b);
@@ -51,7 +44,6 @@ dbRecord1::dbRecord1(BamDB* bamdb)
 : dbRecord0(bamdb)
 {
     const char* tail = 0;
-
     char insert_sql[BUFFER_SIZE];
     sprintf(insert_sql, "INSERT INTO read1 VALUES (@IN, @FL, @CL, @CHR, @TID, @HPOS, @TPOS, @STR, @BC, @UMI);");
     sqlite3_prepare_v2(bamdb->get_conn(), insert_sql, BUFFER_SIZE, \

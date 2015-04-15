@@ -426,7 +426,7 @@ int fill_reads_tid(BamDB* bamdb, dbRecord1* record1, dbRecord2* record2, hts_itr
     int result;
     execute(bamdb->get_conn(), "BEGIN");
     while ((result = sam_itr_next(bamdb->get_bam(), bam_itr, b)) >= 0) {
-        if (b->core.flag&BAM_FMUNMAP) continue;
+        if (b->core.flag&BAM_FUNMAP) continue;
         if ((b->core.flag&BAM_FREAD1) != 0) {
             process_read1(bamdb, record1, b);
         } else {

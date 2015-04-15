@@ -74,9 +74,6 @@ class BamDB {
             hts_idx_t* get_idx() { return idx; }
             int get_rlen(int tid) { return header->target_len[tid]; }
             char * get_chrom(int tid) { return chroms[tid]; }
-            // const char * get_dest_name() { return dest_fname; }
-            // const char * get_tmp_name() { return dest_tmp; }
-            // const char * get_merge_name() { return dest_merge.c_str(); }
             const boost::filesystem::path get_dest_path() { return dest_path; }
             const boost::filesystem::path get_tmp_path() { return tmp_path; }
             const boost::filesystem::path get_merge_path() { return merge_path; }
