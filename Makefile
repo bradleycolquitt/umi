@@ -1,7 +1,7 @@
 CC=g++
 SRC_DIR = src
 
-.PHONY: target test test_bam_utils
+.PHONY: target test test_bam_utils thread
 
 target:
 	${MAKE} -C ${SRC_DIR} target
@@ -11,6 +11,9 @@ test:
 
 test_bam_utils:
 	${MAKE} -C ${SRC_DIR} test_bam_utils
+
+thread:
+	${MAKE} -C ${SRC_DIR} thread
 
 clean:
 	@- $(RM) $(TARGET_NAME) $(SERIAL_NAME) $(MERGE_NAME) $(TEST_NAME) $(TEST_PE_NAME) $(TEST_SERIAL_NAME) $(TEST_MERGE_NAME)

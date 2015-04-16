@@ -47,50 +47,59 @@ vector<int> seq2int(string& s) {
         out_vec[i] = 15;
         break;
     }
-}
-
+    }
     return out_vec;
 }
 
-uint8_t* bam_revcomp(bam1_t* b) {
+void bam_get_seq2(bam1_t* b, int seqlen, uint8_t* seq_p, uint8_t* qual_p) {
     uint8_t* seq = bam_get_seq(b);
-    int seqlen = bam_cigar2rlen(b->core.n_cigar, bam_get_cigar(b));
-    uint8_t revseq[seqlen];
+    for (int i = 0; i < seqlen; ++i) {
+        seq_p[i] = bam_seqi(seq, i);
+    }
+    memcpy(qual_p, bam_get_qual(b), seqlen);
+}
 
+void bam_get_seq_qual(bam1_t* b, uint8_t* seq_p, uint8_t* qual_p) {
+    int seqlen = bam_cigar2qlen(b->core.n_cigar, bam_get_cigar(b));
+    if (bam_is_rev(b)) {
+        //bam_get_seq2(b, seqlen, seq_p, qual_p);
+        bam_revcomp(b, seqlen, seq_p);
+        bam_rev_qual(b, seqlen, qual_p);
+    } else  {
+        bam_get_seq2(b, seqlen, seq_p, qual_p);
+    }
+}
+
+void bam_revcomp(bam1_t* b, int seqlen, uint8_t* seq_rc) {
+    uint8_t* seq = bam_get_seq(b);
     for (int i = 0 ; i < seqlen ; ++i) {
         switch(bam_seqi(seq, i)) {
            case 1 :
-               revseq[seqlen - i - 1] = 8;
+               seq_rc[seqlen - i - 1] = 8;
                break;
            case 2 :
-               revseq[seqlen - i - 1] = 4;
+               seq_rc[seqlen - i - 1] = 4;
                break;
            case 4 :
-               revseq[seqlen - i - 1] = 2;
+               seq_rc[seqlen - i - 1] = 2;
                break;
            case 8 :
-               revseq[seqlen - i - 1] = 1;
+               seq_rc[seqlen - i - 1] = 1;
                break;
            case 15 :
-               revseq[seqlen - i - 1] = 15;
+               seq_rc[seqlen - i - 1] = 15;
                break;
         }
     }
-    return (revseq);
 }
 
-uint8_t* bam_rev(bam1_t* b) {
-    uint8_t* seq = bam_get_qual(b);
-    int seqlen = bam_cigar2rlen(b->core.n_cigar, bam_get_cigar(b));
-    uint8_t rev[seqlen];
-
+void bam_rev_qual(bam1_t* b, int seqlen, uint8_t* seq_rev) {
+    uint8_t* qual = bam_get_qual(b);
     for (int i = 0 ; i < seqlen ; ++i) {
-        rev[seqlen - 0 - 1] = seq[i];
+        seq_rev[seqlen - i - 1] = int(qual[i]);
     }
-
-    return (rev);
-
 }
+
 /***********************
 Read Processing utilities
 **************************/
@@ -120,9 +129,11 @@ int filter_multi_reads(bam1_t* b) {
 int compare_barcode_local(vector<vector<int> >::iterator bc_iter, uint8_t* seq, int start, int end) {
     int k = 0;
     int mm = 0;
+
     for (int j = start; j <= end ; ++j) {
         if (mm > 1) return 0; // return after second mismatch
-        if ((*bc_iter)[k] != bam_seqi(seq, j)) mm += 1;
+        //if ((*bc_iter)[k] != bam_seqi(seq, j)) mm += 1;
+        if ((*bc_iter)[k] != seq[j]) mm += 1;
         ++k;
     }
     return 1; // match found
@@ -140,10 +151,13 @@ int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, vector<int>* b
     vector<vector<int> >::iterator bc_iter_end = barcodes->end();
 
     int i = 0;
+    //print_uint8(seq, 50, false);
     for (; offsets_iter != offsets_iter_end; ++offsets_iter) {
         bc_iter = barcodes->begin();
         for (; bc_iter != bc_iter_end ; ++bc_iter) {
+
             if (compare_barcode_local(bc_iter, seq, start + *offsets_iter, end + *offsets_iter)) {
+
                 *used_offset = *offsets_iter;
                 return i;
             }
@@ -151,33 +165,25 @@ int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, vector<int>* b
         }
         i = 0;
     }
-    return -1;
+    return -2;
 }
 
 //for barcodes
 int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes, \
                  vector<int>* bc_offsets, int min_qual, int* used_offset) {
 
-    uint8_t* seq;
-    uint8_t* qual;
-    if (bam_is_rev(b)) {
-        seq = bam_revcomp(b);
-        qual = bam_rev(b);
-    } else  {
-        seq = bam_get_seq(b);
-        qual = bam_get_qual(b);
-    }
+    int seqlen = bam_cigar2qlen(b->core.n_cigar, bam_get_cigar(b));
+    uint8_t seq[seqlen];
+    uint8_t qual[seqlen];
+    bam_get_seq_qual(b, seq, qual);
 
     // skip read if barcode quality less than min_qual
     int min = 100000;
     int qual_int;
     for (int j = start; j <= end ; ++j) {
-
-        qual_int = int(*qual);
+        qual_int = int(qual[j]);
         if (qual_int < min) min = qual_int;
-        qual += 1;
     }
-
     if (min < min_qual) return -1;
 
     // returns index of perfect match or one mismatch
@@ -190,16 +196,10 @@ int ShiftAdd(int sum, int digit) {
 
 //intended for umi
 uint32_t get_sequence(bam1_t* b, int start, int end, int used_offset) {
-
-    uint8_t* seq;
-    uint8_t* qual;
-    if (bam_is_rev(b)) {
-        seq = bam_revcomp(b);
-        qual = bam_rev(b);
-    } else  {
-        seq = bam_get_seq(b);
-        qual = bam_get_qual(b);
-    }
+    int seqlen = bam_cigar2qlen(b->core.n_cigar, bam_get_cigar(b));
+    uint8_t seq[seqlen];
+    uint8_t qual[seqlen];
+    bam_get_seq_qual(b, seq, qual);
 
     int local_start = start + used_offset;
     int local_end = end + used_offset;
@@ -212,10 +212,8 @@ uint32_t get_sequence(bam1_t* b, int start, int end, int used_offset) {
     }
 
     int min = 100000;
-    //int qual_int;
     for (int j = local_start; j <= local_end ; ++j) {
-        if (int(*qual) < min) min = int(*qual);
-        qual += 1;
+        if (int(qual[j]) < min) min = int(qual[j]);
     }
 
     if (min < 20) {
@@ -250,4 +248,16 @@ uint32_t get_sequence(bam1_t* b, int start, int end, int used_offset) {
         }
         return umi;
     }
+}
+
+void print_uint8 (uint8_t* arr, int seqlen, bool convert) {
+    //size_t len = sizeof(arr)/sizeof(arr[0]);
+    for (int i = 0 ; i < seqlen ; ++i) {
+        if (convert) {
+            printf("%d", bam_seqi(arr, i));
+        } else {
+            printf("%d", arr[i]);
+        }
+    }
+    printf("\n");
 }

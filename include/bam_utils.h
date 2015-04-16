@@ -1,7 +1,6 @@
 #ifndef BAM_UTIL_H
 #define BAM_UTIL_H
 
-//#include <bam_sql_merge.h>
 #include <string_utils.h>
 #include <dbrecord.h>
 #include <htslib/sam.h>
@@ -15,14 +14,10 @@ uint64_t count_bam_records(hts_idx_t* idx, bam_hdr_t* header);
 
 std::vector<int> seq2int(std::string& s);
 
-void bam_get_seq2(bam1_t* b, uint8_t** seq, uint8_t** qual);
 void bam_get_seq2(bam1_t* b, uint8_t* seq, uint8_t* qual);
-
 void bam_get_seq_qual(bam1_t* b, uint8_t* seq, uint8_t* qual);
 void bam_revcomp(bam1_t* b, int seqlen, uint8_t* seq_rc);
-void bam_revcomp(bam1_t* b, int seqlen, uint8_t** seq_rc);
 void bam_rev_qual(bam1_t* b, int seqlen, uint8_t* seq_rev);
-void bam_rev_qual(bam1_t* b, int seqlen, uint8_t** seq_rev);
 int bad_cigar(bam1_t* b);
 int filter_multi_reads(bam1_t* b);
 
