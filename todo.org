@@ -21,7 +21,7 @@ CLOSED: [2015-04-10 Fri 09:18]
 ** featureCounts -R to intersect reads with annotation
 ** extract BC/UMI of reads in annotation_set
 *** create hash table of read_id/annotation
-*** hash table of gene, bc, tid, pos, strand
+*** hash table of gene, pos, bc, umi 
 **** concatenate values
 **** 
 ** 

@@ -1,10 +1,14 @@
 CC=g++
 TARGET_NAME = ../load2db
+HASH_NAME = ../bam_hash
+HASH_TEST_NAME = ../test_hash
 TEST_NAME = ../test
 TEST_BAM_UTILS_NAME = ../test_bam_utils
 TEST_THREAD_NAME = ../test_thread
 
 TARGET_SRCS = load2db_merge.cpp
+HASH_SRCS = bam_hash_main.cpp bam_hash.cpp bamrecord.cpp
+HASH_TEST_SRCS = test_hash.cpp bam_hash.cpp bamrecord.cpp
 TEST_SRCS = test_merge.cpp
 TEST_BAM_UTILS_SRCS = test_bam_utils.cpp
 TEST_THREAD_SRCS = threaded_sql.cpp
@@ -13,6 +17,8 @@ COMMON_SRCS = bam_utils.cpp dbrecord.cpp sql_utils.cpp string_utils.cpp sqlite_w
 
 COMMON_OBJS := ${COMMON_SRCS:.cpp=.o}
 TARGET_OBJ = ${TARGET_SRCS:.cpp=.o}
+HASH_OBJ = ${HASH_SRCS:.cpp=.o}
+HASH_TEST_OBJ = ${HASH_TEST_SRCS:.cpp=.o}
 TEST_OBJ = ${TEST_SRCS:.cpp=.o}
 TEST_BAM_UTILS_OBJ = ${TEST_BAM_UTILS_SRCS:.cpp=.o}
 TEST_THREAD_OBJ = ${TEST_THREAD_SRCS:.cpp=.o}
@@ -28,7 +34,7 @@ LDFLAGS += $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))
 LDFLAGS += $(foreach library, $(LIBS), -l$(library))
 TEST_LDFLAGS = -lprofiler -ltcmalloc
 
-.PHONY: target test thread
+.PHONY: target test thread hash test_hash
 
 target: COMMON_SRCS += $(TARGET_SRCS)
 target: $(TARGET_NAME)
@@ -44,6 +50,13 @@ thread: CPPFLAGS += -DDEBUG -g
 thread: COMMON_SRCS += $(TEST_THREAD_SRCS)
 thread: $(TEST_THREAD_NAME)
 
+hash: COMMON_SRCS += $(HASH_SRCS)
+hash: $(HASH_NAME)
+
+test_hash: CPPFLAGS += -DDEBUG -g
+test_hash: COMMON_SRCS += $(HASH_TEST_SRCS)
+test_hash: $(HASH_TEST_NAME)
+
 $(TARGET_NAME): $(TARGET_OBJ) $(COMMON_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
@@ -54,6 +67,12 @@ $(TEST_BAM_UTILS_NAME): $(TEST_BAM_UTILS_OBJ) $(COMMON_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(TEST_LDFLAGS)
 
 $(TEST_THREAD_NAME): $(TEST_THREAD_OBJ) $(COMMON_OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS) $(TEST_LDFLAGS)
+
+$(HASH_NAME): $(HASH_OBJ) $(COMMON_OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+$(HASH_TEST_NAME): $(HASH_TEST_OBJ) $(COMMON_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(TEST_LDFLAGS)
 
 %.o: %.cpp
