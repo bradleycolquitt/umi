@@ -1,7 +1,7 @@
 import fasta_cy as fasta
 import Levenshtein as lev
 
-cdef int min_barcode(list barcodes, str sseq):
+cpdef int min_barcode(list barcodes, str sseq):
     cdef int val = 0
     cdef int distance_min = 100
     cdef int i = 0

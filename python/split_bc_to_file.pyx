@@ -56,8 +56,8 @@ cdef class extracter:
             self.output_files.append(open("".join(["split/",basename, "_bc", str(idx+1), ".fastq"]), 'w'))
         self.output_files.append(open("".join(["split/",basename, "_bcUn", ".fastq"]), 'w'))
         ## Other variables ##
-        self.bc_sub = (5,11)
-        self.umi_sub = (0,5)
+        self.bc_sub = (8,14)
+        self.umi_sub = (0,8)
         self.sseq = "AAAAAA"
 
     ## Main function to read in fastq
@@ -94,7 +94,7 @@ cdef class extracter:
     cdef int get_barcode(self, seq, qual):
         # First, check qual. If minimum PHRED is less than 20 anywhere in barcode discard
         squal_min = fasta.min_qual(qual[self.bc_sub[0]:self.bc_sub[1]])
-        if squal_min <= 20: return -1
+        if squal_min <= 10: return -1
 
         self.sseq = seq[self.bc_sub[0]:self.bc_sub[1]]
 
@@ -104,7 +104,7 @@ cdef class extracter:
     def get_umi(self, seq, qual):
         sub = (0, 5)
         min_qual = fasta.min_qual(qual[sub[0]:sub[1]])
-        if (min_qual > 17):
+        if (min_qual > 10):
             return seq[sub[0]:sub[1]]
         else:
             return 'N'

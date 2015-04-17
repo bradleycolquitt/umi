@@ -360,34 +360,42 @@ void BamDB::create_collapsed_index() {
 void BamDB::group_umi() {
     cout << "Grouping umi..." << endl;
 
-    const char* create_table = "CREATE TABLE grouped (\
-                                    pos_id int,\
-                                    unique_umi int,\
-                                    total_umi int,\
-                                    FOREIGN KEY(pos_id)\
-                                        REFERENCES collapsed(pos_id)\
-                                )";
-    execute(conns[1], create_table);
+    execute(conns[1], "CREATE TABLE grouped AS SELECT bc, tid, hpos1, strand, count(distinct umi) AS unique_umi, count(umi) AS total_umi FROM merge\
+                       GROUP BY\
+                           bc,\
+                           tid,\
+                           hpos1, \
+                           strand;");
+    execute(conns[1], "CREATE INDEX grouped_pos ON grouped(bc,tid,hpos1,strand);");
 
-    const char* group_umi = "INSERT INTO grouped\
-                             SELECT\
-                                tmp.rowid as pos_id ,\
-                                count(distinct umi) as unique_umi,\
-                                count(umi) as total_umi\
-                                FROM\
-                                    merge JOIN tmp ON\
-                                        merge.bc = tmp.bc\
-                                        AND merge.tid = tmp.tid\
-                                        AND merge.hpos1 = tmp.hpos1\
-                                        AND merge.strand = tmp.strand        \
-                                GROUP BY\
-                                    tmp.rowid\
-                                ";
+    // const char* create_table = "CREATE TABLE grouped (\
+    //                                 pos_id int,\
+    //                                 unique_umi int,\
+    //                                 total_umi int,\
+    //                                 FOREIGN KEY(pos_id)\
+    //                                     REFERENCES collapsed(pos_id)\
+    //                             )";
+    // execute(conns[1], create_table);
 
-    execute(conns[1], "BEGIN TRANSACTION");
-    execute(conns[1], group_umi);
-    execute(conns[1], "END TRANSACTION");
-    execute(conns[1], "CREATE INDEX grouped_pos ON grouped(pos_id);");
+    // const char* group_umi = "INSERT INTO grouped\
+    //                          SELECT\
+    //                             tmp.rowid as pos_id ,\
+    //                             count(distinct umi) as unique_umi,\
+    //                             count(umi) as total_umi\
+    //                             FROM\
+    //                                 merge JOIN tmp ON\
+    //                                     merge.bc = tmp.bc\
+    //                                     AND merge.tid = tmp.tid\
+    //                                     AND merge.hpos1 = tmp.hpos1\
+    //                                     AND merge.strand = tmp.strand        \
+    //                             GROUP BY\
+    //                                 tmp.rowid\
+    //                             ";
+
+    // execute(conns[1], "BEGIN TRANSACTION");
+    // execute(conns[1], group_umi);
+    // execute(conns[1], "END TRANSACTION");
+    // execute(conns[1], "CREATE INDEX grouped_pos ON grouped(pos_id);");
 }
 
 int process_read1(BamDB* bamdb, dbRecord1* record ,bam1_t* b) {
@@ -471,11 +479,11 @@ int fill_db(BamDB* bamdb) {
     bamdb->merge_tables();
     print_time(start);
 
-    bamdb->collapse_positions();
-    print_time(start);
+    // bamdb->collapse_positions();
+    // print_time(start);
 
-    bamdb->create_rtree();
-    print_time(start);
+    // bamdb->create_rtree();
+    // print_time(start);
 
     bamdb->group_umi();
     print_time(start);

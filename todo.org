@@ -16,3 +16,12 @@ CLOSED: [2015-04-10 Fri 09:18]
 *** takes forever to drop a table in sqlite
 * Aggregate reads not working for large files
 ** TODO determine if this is actually due ot large files (and how large to see effect) or if this is some weird directory issue.
+
+* DESIGN
+** featureCounts -R to intersect reads with annotation
+** extract BC/UMI of reads in annotation_set
+*** create hash table of read_id/annotation
+*** hash table of gene, bc, tid, pos, strand
+**** concatenate values
+**** 
+** 
