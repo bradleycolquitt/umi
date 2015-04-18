@@ -2,7 +2,7 @@
 #define BAM_UTIL_H
 
 #include <string_utils.h>
-#include <dbrecord.h>
+//#include <dbrecord.h>
 #include <htslib/sam.h>
 #include <fstream>
 #include <vector>

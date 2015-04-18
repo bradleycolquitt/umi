@@ -26,7 +26,8 @@ int main(int argc, char** argv) {
         ("help,h", "produce help message")
         ("umi-length,u", po::value<int>()->default_value(8), "length of UMI sequence")
         ("bc-min-qual,q", po::value<int>()->default_value(20), "minimum quality score for barcode")
-        //("paired-end", po::value<bool>()->default_value(false), "Record matepair information")
+        ("just-merge", po::value<bool>()->default_value(false), "Just read in reads and merge")
+        ("just-fill", po::value<bool>()->default_value(false), "Just read in reads ")
         ("barcode", po::value<string>(), "prefix of barcode file")
         ("db", po::value<string>())
         ("bam", po::value<string>())
@@ -85,8 +86,9 @@ int main(int argc, char** argv) {
 
     int umi_length = vm["umi-length"].as<int>();
     int bc_min_qual = vm["bc-min-qual"].as<int>();
-    //bool paired_end = vm["paired-end"].as<bool>();
-    BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_length, bc_min_qual, true);
+    bool just_merge = vm["just-merge"].as<bool>();
+    bool just_fill = vm["just-fill"].as<bool>();
+    BamDB* bamdb = new BamDB(bam_fname, dest_fname, barcodes, umi_length, bc_min_qual, just_merge, just_fill);
 
     fill_db(bamdb);
     delete bamdb;

@@ -46,7 +46,8 @@ class BamDB {
             boost::filesystem::path dest_path;
             boost::filesystem::path merge_path;
             boost::filesystem::path tmp_path;
-            const bool paired_end;
+            const bool just_merge;
+            const bool just_fill;
             samFile* bam;
             bam_hdr_t* header;
             map<int,char*> chroms;
@@ -60,7 +61,7 @@ class BamDB {
 
             int bc_min_qual;
     public:
-            BamDB(const char* bam_fname, const char* final_fname, const char* barcodes_fname, int umi_length, int bc_min_qual, bool paired_end);
+            BamDB(const char* bam_fname, const char* final_fname, const char* barcodes_fname, int umi_length, int bc_min_qual, bool just_merge, bool just_fill);
 
             ~BamDB();
 
@@ -68,7 +69,7 @@ class BamDB {
             void set_barcodes(const char* fname, vector<vector<int> >& vec_p);
 
             /* Gettors */
-            bool is_pe() { return paired_end; }
+
             samFile* get_bam() { return bam; }
             bam_hdr_t* get_header() { return header; }
             hts_idx_t* get_idx() { return idx; }
@@ -86,6 +87,8 @@ class BamDB {
             vector<vector<int> >* get_barcodes() { return &barcodes; }
             vector<int>* get_bc_offsets() { return &bc_offsets; }
             int get_bc_min_qual() { return bc_min_qual; }
+            bool merge_only() { return just_merge; }
+            bool fill_only() { return just_fill; }
 
             /* Other */
                 // Create 'reference table' containing human-readable reference names and tdd.

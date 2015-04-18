@@ -17,16 +17,6 @@
          umi int
          INDICES:
 
-     collapsed - Reads collapsed to positions defined by
-                 read1 and read2 heads
-         bc int
-         tid int
-         lpos1 int
-         rpos2 int
-         isize int
-         strand int
-         pos_id int -- tmp.rowid
-
      pos_rtree - R*Tree for collapsed tid, pos, and strand
          id -- correspondds to collapsed rowid
          tid1
@@ -36,21 +26,12 @@
          strand1
          strand2
 
-     tmp -
-         bc int
+     grouped - UMI counts by reaad1 pos
          tid int
          hpos1 int
          strand int
-         INDICES:
-             bc, tid, hpos1, strand
-
-     grouped - UMI counts by reaad1 pos
-         //tid int
-         //hpos1 int
-         //strand int
-         pos_id int -- from tmp.rowid
          unique_umi int
-         total_umi int\
+         total_umi int
          INDICES:
              pos_id
 
@@ -67,9 +48,10 @@ General approach:
 using namespace std;
 
 // Main BamDB constructor
-BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_length, int bc_min_qual, bool paired_end)
+BamDB::BamDB(const char* bam_fname, const char* dest_fname, const char* barcodes_fname, int umi_length, int bc_min_qual, bool just_merge, bool just_fill)
     : bam_fname(bam_fname)
-    , paired_end(paired_end)
+    , just_merge(just_merge)
+    , just_fill(just_fill)
     , bc_min_qual(bc_min_qual)
     {
     bam = sam_open(bam_fname, "rb");
@@ -470,26 +452,34 @@ int fill_db(BamDB* bamdb) {
     start = std::clock();
 
     try {
-    fill_reads(bamdb);
-    print_time(start);
 
-    bamdb->index_cluster();
-    print_time(start);
+        fill_reads(bamdb);
+        print_time(start);
+        if (bamdb->fill_only())
+        {
+            boost::filesystem::
+            rename(bamdb->get_tmp_path(), bamdb->get_dest_path());
+            return 1;
+        }
+        bamdb->index_cluster();
+        print_time(start);
 
-    bamdb->merge_tables();
-    print_time(start);
+        bamdb->merge_tables();
+        print_time(start);
+        if (bamdb->merge_only()) return 1;
 
-    // bamdb->collapse_positions();
-    // print_time(start);
 
-    // bamdb->create_rtree();
-    // print_time(start);
+     // bamdb->collapse_positions();
+        // print_time(start);
 
-    bamdb->group_umi();
-    print_time(start);
+        // bamdb->create_rtree();
+        // print_time(start);
 
-    bamdb->create_reftable();
-    print_time(start);
+        bamdb->group_umi();
+        print_time(start);
+
+        bamdb->create_reftable();
+        print_time(start);
 
     } catch (sql_exception &e) {
         cerr << " ! Error: " << e.what() << endl;
