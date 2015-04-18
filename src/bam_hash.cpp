@@ -191,7 +191,6 @@ void BamHash::print_results() {
                          << umi->first << "\t"
                          << umi->second << endl;
                 }
-
             }
         }
     }
