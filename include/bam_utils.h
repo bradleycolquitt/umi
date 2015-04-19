@@ -7,7 +7,9 @@
 #include <fstream>
 #include <vector>
 #include <string>
-
+#include <cstring>
+#include <numeric>
+#include <iostream>
 using namespace std;
 
 uint64_t count_bam_records(hts_idx_t* idx, bam_hdr_t* header);

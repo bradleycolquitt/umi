@@ -1,6 +1,4 @@
 #include <bam_utils.h>
-//#include <htslib/sam.h>
-//#include <fstream>
 
 using namespace std;
 
@@ -222,7 +220,8 @@ uint32_t get_sequence(bam1_t* b, int start, int end, int used_offset) {
         vector<uint8_t> umi_int(local_end - local_start + 1 + d, 0);
         size_t umi_int_size = umi_int.size();
         for (unsigned int j = 0; j < (umi_int_size - d); ++j) {
-             umi_int[j + d] = (uint8_t)bam_seqi(seq, j + local_start);
+             //umi_int[j + d] = (uint8_t)bam_seqi(seq, j + local_start);
+             umi_int[j + d] = seq[j + local_start];
         }
         // if offset truncates UMI, randomly assign base to truncated positions
         if (d > 0) {
@@ -232,16 +231,27 @@ uint32_t get_sequence(bam1_t* b, int start, int end, int used_offset) {
             }
         }
         uint32_t umi(accumulate(umi_int.begin(), umi_int.end(), 0, ShiftAdd));
-        if (umi > 100000000) {
+        if (umi < 10000000) {
             for (int i=0; i < umi_int_size; i++) {
                cerr << umi_int[i];
             }
+            for (int i = 0 ; i < 2*sizeof(seq) / sizeof(seq[0]); ++i) {
+                cout << bam_seqi(seq, i);
+            }
+            cout << endl;
+
+            uint8_t * seq2 = bam_get_seq(b);
+            for (int i = 0 ; i < 2*sizeof(seq) / sizeof(seq[0]); ++i) {
+                cout << bam_seqi(seq2, i);
+            }
+            cout << endl;
             cerr << "d: " << d << endl;
             cerr << "start: " << start << endl;
             cerr << "end: " << end << endl;
             cerr << "used offset: " << used_offset << endl;
             cerr << "local_start: " << local_start << endl;
             cerr << "local_end: " << local_end << endl;
+            cerr << "rev?: " << bam_is_rev(b) << endl;
             cerr << endl;
             cerr << umi << endl;
             exit(1);

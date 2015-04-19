@@ -11,6 +11,7 @@ void UmiHash::update(BamRecord* record)
         ++umi_map[umi];
     }
 }
+
 void BarcodeHash::update(BamRecord * record)
 {
     pair<unordered_map<int, unique_ptr<UmiHash> >::const_iterator, bool> result;
@@ -26,7 +27,7 @@ void PositionHash::update(BamRecord * record)
 }
 
 // Main Bamhash constructor
-BamHash::BamHash(const char* bam_fname, const char* anno_fname, const char* dest_fname, const char* barcodes_fname, int umi_length, int bc_min_qual)
+BamHash::BamHash(const char* bam_fname, const char* anno_fname, const char* dest_fname,                  const char* barcodes_fname, int umi_length, int bc_min_qual)
     : bam_fname(bam_fname)
     , anno_fname(anno_fname)
     , dest_fname(dest_fname)
@@ -43,15 +44,7 @@ BamHash::BamHash(const char* bam_fname, const char* anno_fname, const char* dest
 
     boost::filesystem::path dest_fname_path(dest_fname);
     dest_path = boost::filesystem::complete(dest_fname_path);
-    //ofstream out(dest_path.string(), ofstream::out);
     outfile.open(dest_path.string(), ofstream::out);
-    // tmp_path = dest_path;
-    // tmp_path += ".tmp";
-
-    // merge_path = dest_path.parent_path();
-    // merge_path /= "merge.db";
-
-
 
     //Barcode setup
     char bc_path[255];
@@ -71,28 +64,21 @@ BamHash::BamHash(const char* bam_fname, const char* anno_fname, const char* dest
     size_t bc_length = barcodes[0].size();
     sequence_pos.push_back(sequence_pos[2] + bc_length - 1);
 
-
     // defines offsets used during barcode search
     int offsets_array[] = {0,-1,1};
     bc_offsets.assign(offsets_array, offsets_array + sizeof(offsets_array) / sizeof(int));
 }
 
-BamHash::~BamHash() {
-    // sqlite3_close(conns[0]);
-    // sqlite3_close(conns[1]);
+BamHash::~BamHash()
+{
     sam_close(bam);
     bam_hdr_destroy(header);
     hts_idx_destroy(idx);
-    for (auto& position : position_map)
-    {
-        //delete position.second;
-    }
-
-    //remove_tmp_files();
 }
 
 // Read in barcodes file and load sequences into barcodes vector
-void BamHash::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
+void BamHash::set_barcodes(const char* fname, vector<vector<int> >& vec_p)
+{
     ifstream bc_s(fname, ifstream::in);
     if (!bc_s.good()) {
          throw runtime_error("Error: Barcode file not found.");
@@ -109,7 +95,8 @@ void BamHash::set_barcodes(const char* fname, vector<vector<int> >& vec_p) {
     }
 }
 
-void BamHash::insert_anno(const string & read_id, const string & gene_id) {
+void BamHash::insert_anno(const string & read_id, const string & gene_id)
+{
     anno_map.emplace(read_id, gene_id);
 }
 
@@ -129,9 +116,9 @@ bool BamHash::find_read(bam1_t * b, BamRecord * record)
 
 void BamHash::update_maps(BamRecord * record)
 {
-
-    pair<unordered_map<string, unique_ptr<PositionHash>  >::const_iterator, bool> result;
-    result = position_map.emplace(record->get_gene_id(), unique_ptr<PositionHash>(new PositionHash()));
+    pair<unordered_map<string, unique_ptr<PositionHash> >::const_iterator, bool> result;
+    result = position_map.emplace(record->get_gene_id(),
+                                  unique_ptr<PositionHash>(new PositionHash()));
     result.first->second->update(record);
 }
 
@@ -160,7 +147,6 @@ int hash_reads_tid(BamHash* bamhash, BamRecord * record, hts_itr_t* bam_itr)
 {
     bam1_t* b = bam_init1();
     int result;
-
     while ((result = sam_itr_next(bamhash->get_bam(), bam_itr, b)) >= 0) {
         if (!bamhash->find_read(b, record)) continue;
         if ((b->core.flag&BAM_FREAD1) != 0) {
@@ -172,12 +158,10 @@ int hash_reads_tid(BamHash* bamhash, BamRecord * record, hts_itr_t* bam_itr)
 }
 
 void BamHash::print_results() {
-    //for (auto& position : bamhash->get_position_map())
     for (auto& gene : position_map)
     {
         unordered_map<int, unique_ptr<BarcodeHash> >::iterator position = gene.second->begin();
         for (; position != gene.second->end(); ++position)
-        //for (auto& barcode : position.second )
         {
             unordered_map<int, unique_ptr<UmiHash> >::iterator barcode = position->second->begin();
             for (; barcode != position->second->end(); ++barcode)
@@ -208,17 +192,3 @@ void BamHash::hash_reads()
     }
     bam_itr_destroy(bam_itr);
 }
-
-// void BamHash::run() {
-//     clock_t start;
-//     start = std::clock();
-
-//     //try {
-//     hash_reads();
-//     print_time(start);
-
-//     // }  catch (runtime_error &e) {
-//     //     cerr << " ! Runtime error: " << e.what() << endl;
-//     //     exit(1);
-//     // }
-//}

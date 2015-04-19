@@ -29,16 +29,16 @@ int main(int argc, char** argv) {
         ("bc-min-qual,q", po::value<int>()->default_value(20), "minimum quality score for barcode")
         //("paired-end", po::value<bool>()->default_value(false), "Record matepair information")
         ("barcode", po::value<string>(), "prefix of barcode file")
-        ("db", po::value<string>())
+        ("outfile", po::value<string>())
         ("anno", po::value<string>())
         ("bam", po::value<string>())
     ;
 
     po::positional_options_description positionalOptions;
     positionalOptions.add("barcode", 1);
-    positionalOptions.add("db", 1);
     positionalOptions.add("anno", 1);
     positionalOptions.add("bam", 1);
+    positionalOptions.add("outfile", 1);
 
     po::variables_map vm;
 
@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
     }
 
     const char* bam_fname = convert_to_cstr(vm["bam"].as<string>());
-    const char* dest_fname = convert_to_cstr(vm["db"].as<string>());
+    const char* dest_fname = convert_to_cstr(vm["outfile"].as<string>());
     const char* anno_fname = convert_to_cstr(vm["anno"].as<string>());
     const char* barcodes = convert_to_cstr(vm["barcode"].as<string>());
 
