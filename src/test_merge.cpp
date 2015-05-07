@@ -19,7 +19,7 @@ int main() {
     const char* db_fname = "/home/brad/src/umi/test_files/test_merge.db";
     remove(db_fname);
 
-    BamDB* bamdb = new BamDB(bam_fname, db_fname, "bc8", 8, 10, true);
+    BamDB* bamdb = new BamDB(bam_fname, db_fname, "bc8", 8, 10, false, true);
 
     #ifdef PROFILE
     ProfilerStart("/home/brad/src/umi/profiling/test_merge_1M.prof");

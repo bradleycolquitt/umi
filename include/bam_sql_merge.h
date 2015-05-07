@@ -90,22 +90,34 @@ class BamDB {
             bool merge_only() { return just_merge; }
             bool fill_only() { return just_fill; }
 
-            /* Other */
-                // Create 'reference table' containing human-readable reference names and tdd.
-            void remove_tmp_files();
-            void close_conn(int index);
+            /* Table creation */
             void create_align_table();
             void create_reftable();
+            void create_rtree();
+            void create_idcollapsed();
+
+            /* Index creation */
             void index_cluster();
-            void merge_tables();
             void index_merge();
-            void drop_read_tables();
+            void create_read1_index();
+            void create_pos_indices();
+            void create_collapsed_index();
+
+            /* Processing */
+            void merge_tables();
             void collapse_positions();
             void group_umi();
-            void create_pos_indices();
-            void create_idcollapsed();
-            void create_rtree();
-            void create_collapsed_index();
+
+            /* Housekeeping */
+            void remove_tmp_files();
+            void drop_read_tables();
+            void close_conn(int index);
+
+
+
+
+
+
 
     friend class dbRecord;
 };

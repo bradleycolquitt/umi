@@ -170,7 +170,7 @@ void BamDB::create_reftable() {
 }
 void BamDB::remove_tmp_files() {
     const boost::filesystem::path p(tmp_path);
-    if (!boost::filesystem::remove(p)) {
+    if (boost::filesystem::exists(p) && !boost::filesystem::remove(p)) {
         cerr << "! Failed to clean up temp file: " << p << endl;
     }
 }
@@ -182,19 +182,7 @@ void BamDB::close_conn(int index) {
     }
 }
 
-void BamDB::index_cluster() {
-    char* err_msg = 0;
-    int result = 0;
 
-    cout << "Indexing cluster.." << endl;
-    if ((result = sqlite3_exec(conns[0], "CREATE INDEX cluster_index1 ON read1 (cluster)", NULL, NULL, &err_msg)) != SQLITE_OK) {
-        fprintf(stderr, "SQL error (%d) on read1.cluster_index: %s \n", result, err_msg);
-    }
-    if ((result = sqlite3_exec(conns[0], "CREATE INDEX cluster_index2 ON read2 (cluster)", NULL, NULL, &err_msg)) != SQLITE_OK) {
-        fprintf(stderr, "SQL error (%d) on read2.cluster_index: %s \n", result, err_msg);
-    }
-    sqlite3_free(err_msg);
-}
 
 void BamDB::merge_tables() {
     cout << "Merging reads..." << endl;
@@ -245,9 +233,7 @@ void BamDB::merge_tables() {
     cout << "Merge table created." << endl;
 }
 
-void BamDB::index_merge() {
-    execute(conns[1], "CREATE INDEX merge_full ON merge(hpos1, chrom, bc, strand)");
-}
+
 
 void BamDB::collapse_positions() {
 
@@ -300,11 +286,53 @@ void BamDB::collapse_positions() {
     execute(conns[1], "COMMIT");
 }
 
-void BamDB::create_pos_indices() {
+/*************** Index creation ******************/
+
+void BamDB::index_cluster()
+{
+    char* err_msg = 0;
+    int result = 0;
+
+    cout << "Indexing cluster.." << endl;
+    if ((result = sqlite3_exec(conns[0], "CREATE INDEX cluster_index1 ON read1 (cluster)", NULL, NULL, &err_msg)) != SQLITE_OK) {
+        fprintf(stderr, "SQL error (%d) on read1.cluster_index: %s \n", result, err_msg);
+    }
+    if ((result = sqlite3_exec(conns[0], "CREATE INDEX cluster_index2 ON read2 (cluster)", NULL, NULL, &err_msg)) != SQLITE_OK) {
+        fprintf(stderr, "SQL error (%d) on read2.cluster_index: %s \n", result, err_msg);
+    }
+    sqlite3_free(err_msg);
+}
+
+void BamDB::index_merge()
+{
+    execute(conns[1], "CREATE INDEX merge_full ON merge(hpos1, chrom, bc, strand)");
+}
+
+void BamDB::create_read1_index()
+{
+    execute(conns[0], "CREATE INDEX read1_index ON read1 (bc)");
+}
+
+void BamDB::create_pos_indices()
+{
     cout << "Indexing positions..." << endl;
     execute(conns[1], "CREATE INDEX pos_index1 ON merge (bc, chrom, hpos1, hpos2, strand)");
     execute(conns[1], "CREATE INDEX pos_index2 ON collapsed (bc, chrom, lpos1, rpos2, strand)");
 }
+
+void BamDB::create_collapsed_index()
+{
+    cout << "Creating indices..." << endl;
+    try
+    {
+        execute(conns[1], "CREATE INDEX collapsed_isize ON collapsed(isize)");
+        execute(conns[1], "CREATE INDEX collapsed_index ON collapsed(lpos1, rpos2, chrom, lpos1, lpos2, strand);" );
+    } catch (sql_exception &e)
+    {
+        throw e;
+    }
+}
+
 
 void BamDB::create_idcollapsed() {
     cout << "Adding idcollapse to merge..." << endl;
@@ -329,15 +357,7 @@ void BamDB::create_rtree() {
     cerr << "Finished creating rtree..." << endl;
 }
 
-void BamDB::create_collapsed_index() {
-    cout << "Creating indices..." << endl;
-    try {
-        execute(conns[1], "CREATE INDEX collapsed_isize ON collapsed(isize)");
-        execute(conns[1], "CREATE INDEX collapsed_index ON collapsed(lpos1, rpos2, chrom, lpos1, lpos2, strand);" );
-    } catch (sql_exception &e) {
-        throw e;
-    }
-}
+
 
 void BamDB::group_umi() {
     cout << "Grouping umi..." << endl;
@@ -457,6 +477,7 @@ int fill_db(BamDB* bamdb) {
         print_time(start);
         if (bamdb->fill_only())
         {
+            bamdb->create_read1_index();
             boost::filesystem::
             rename(bamdb->get_tmp_path(), bamdb->get_dest_path());
             return 1;
