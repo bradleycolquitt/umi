@@ -124,11 +124,19 @@ void BamHash::update_maps(BamRecord * record)
 
 void hash_annotation(BamHash* bamhash)
 {
+    cout << "Loading annotation..." << endl;
     ifstream anno(bamhash->get_anno_fname());
+    string line;
     string read_id, assigned, gene_id;
     const string assigned_val("Assigned");
-    while(anno >> read_id >> assigned >> gene_id) {
+//    const string test_val("augustus_masked-scaffold_0-processed-gene-4.2");
+    //while(anno >> read_id >> assigned >> gene_id) {
+    while (getline(anno, line))
+    {
+        istringstream iss(line);
+        if (!(iss >> read_id >> assigned >> gene_id)) continue;
         if (assigned_val.compare(assigned) == 0) {
+//            if (test_val.compare(gene_id) == 0) cout << read_id << "\t" << gene_id << endl;
             bamhash->insert_anno(read_id, gene_id);
         }
     }
@@ -137,6 +145,9 @@ void hash_annotation(BamHash* bamhash)
 void process_read1(BamHash* bamhash, BamRecord * record, bam1_t* b)
 {
     int used_offset = 0;
+    if (bad_cigar(b)) return;
+    if (filter_multi_reads(b)) return;
+
     record->set_position(b->core.pos);
     record->set_bc(bamhash, b, &used_offset);
     record->set_umi(bamhash, b, used_offset);
@@ -157,7 +168,24 @@ int hash_reads_tid(BamHash* bamhash, BamRecord * record, hts_itr_t* bam_itr)
     return 0;
 }
 
-void BamHash::print_results() {
+void BamHash::print_results()
+{
+    vector<string> file_header;
+    file_header.push_back("bc");
+    file_header.push_back("gene_id");
+    file_header.push_back("position");
+    file_header.push_back("umi");
+    file_header.push_back("count");
+
+    vector<string>::iterator iter = file_header.begin();
+    outfile << *iter;
+    ++iter;
+    for (; iter != file_header.end() ; ++iter)
+    {
+        outfile << "\t" << *iter;
+    }
+    outfile << endl;
+
     for (auto& gene : position_map)
     {
         unordered_map<int, unique_ptr<BarcodeHash> >::iterator position = gene.second->begin();
@@ -182,13 +210,28 @@ void BamHash::print_results() {
 
 void BamHash::hash_reads()
 {
+    cout << "Hashing reads..." << endl;
     hts_itr_t* bam_itr;
+
+    int total = header->n_targets;
+    int measure = round(total)/10;
     for (int tid = 0; tid < header->n_targets; ++tid)
     {
+        //cout << tid << endl;
+        if (measure>1)
+        {
+            if ((tid % measure) == 0)
+            {
+                cout << "-";
+                cout.flush();
+            }
+        }
         BamRecord * record = new BamRecord(tid);
         bam_itr = bam_itr_queryi(idx, tid, 0, get_rlen(tid));
         hash_reads_tid(this, record, bam_itr);
         delete record;
+        bam_itr_destroy(bam_itr);
     }
-    bam_itr_destroy(bam_itr);
+    cout << endl;
+
 }
