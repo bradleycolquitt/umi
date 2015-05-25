@@ -1,7 +1,7 @@
 CC=g++
 SRC_DIR = src
 
-.PHONY: target test test_bam_utils thread hash test_hash
+.PHONY: target test test_bam_utils thread hash test_hash filter test_filter
 
 target:
 	${MAKE} -C ${SRC_DIR} target
@@ -18,9 +18,14 @@ thread:
 hash:
 	${MAKE} -C ${SRC_DIR} hash
 
-hash:
+test_hash:
 	${MAKE} -C ${SRC_DIR} test_hash
 
+filter:
+	${MAKE} -C ${SRC_DIR} filter
+
+test_filter:
+	${MAKE} -C ${SRC_DIR} test_filter
+
 clean:
-	@- $(RM) $(TARGET_NAME) $(SERIAL_NAME) $(MERGE_NAME) $(TEST_NAME) $(TEST_PE_NAME) $(TEST_SERIAL_NAME) $(TEST_MERGE_NAME)
-	@- $(RM) $(COMMON_OBJS) $(SERIAL_OBJ) $(MERGE_OBJ) $(TARGET_OBJ) $(TEST_OBJ) $(TEST_PE_OBJ) $(TEST_SERIAL_OBJ) $(TEST_MERGE_OBJ)
+	${MAKE} -C ${SRC_DIR} clean
