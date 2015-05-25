@@ -15,6 +15,7 @@ class BamRecord
         string read_id;
         string gene_id;
         int32_t tid;
+        bool strand;
         uint32_t pos;
         int bc;
         uint32_t umi;
@@ -22,12 +23,14 @@ class BamRecord
         BamRecord(int tid);
         string get_read_id() { return read_id; }
         string get_gene_id() { return gene_id; }
+        bool get_strand() { return strand; }
         uint32_t get_pos() { return pos; }
         int get_bc() { return bc; }
         uint32_t get_umi() { return umi; }
 
         void set_read_id( string val ) { read_id = val; }
         void set_gene_id( string val ) { gene_id = val; }
+        void set_strand ( bam1_t * b) { strand = (b->core.flag&BAM_FREVERSE) == 0; }
         void set_position( uint32_t val ) { pos = val; }
         void set_bc(BamHash * bamhash, bam1_t * b, int * used_offset);
         void set_umi(BamHash * bamhash, bam1_t * b, int used_offset);

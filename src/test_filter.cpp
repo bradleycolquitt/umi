@@ -1,6 +1,6 @@
 #include <htslib/sam.h>
 #include <bamrecord.h>
-#include <bam_hash.h>
+#include <bam_filter.h>
 #include <bam_utils.h>
 #include <timing.h>
 #include <iostream>
@@ -20,10 +20,10 @@ int main() {
     //const char* bam_fname = "/home/brad/src/umi/test_files/load2db_test_qsort_1M.bam";
     const char* bam_fname = "/media/data/bam/150403/ercc_cat_space/lib40/lib40_clip18Aligned.bam";
     //const char* anno_fname = "/home/brad/src/umi/test_files/load2db_test_qsort_1M.bam.featureCounts";
-    const char* anno_fname = "/media/data/bam/150403/ercc_cat_space/lib40/lib40_clip18Aligned.bam.featureCounts";
-    const char* dest_fname = "/home/brad/src/umi/test_files/out.txt";
+    //const char* anno_fname = "/media/data/bam/150403/ercc_cat_space/lib40/lib40_clip18Aligned.bam.featureCounts";
+    const char* dest_fname = "/home/brad/src/umi/test_files/out.bam";
 
-    BamHash* bamhash = new BamHash(bam_fname, anno_fname, dest_fname, "bc8", 8, 10);
+    BamHash* bamhash = new BamHash(bam_fname, "", dest_fname, "bc8", 8, 10);
 
 
     #ifdef PROFILE
@@ -32,14 +32,14 @@ int main() {
     #endif
 
     clock_t start = clock();
-    hash_annotation(bamhash);
-    print_time(start);
+    // hash_annotation(bamhash);
+    // print_time(start);
 
     bamhash->hash_reads();
     print_time(start);
 
-    bamhash->print_results();
-    print_time(start);
+    // bamhash->print_results();
+    // print_time(start);
 
     #ifdef PROFILE
     ProfilerStop();

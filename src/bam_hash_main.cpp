@@ -27,11 +27,10 @@ int main(int argc, char** argv) {
         ("help,h", "produce help message")
         ("umi-length,u", po::value<int>()->default_value(8), "length of UMI sequence")
         ("bc-min-qual,q", po::value<int>()->default_value(20), "minimum quality score for barcode")
-        //("paired-end", po::value<bool>()->default_value(false), "Record matepair information")
         ("barcode", po::value<string>(), "prefix of barcode file")
-        ("outfile", po::value<string>())
         ("anno", po::value<string>())
         ("bam", po::value<string>())
+        ("outfile", po::value<string>())
     ;
 
     po::positional_options_description positionalOptions;
@@ -61,8 +60,9 @@ int main(int argc, char** argv) {
         cout << "Usage: load2db [options] barcode_prefix db bam" << endl << endl
              << "Required options:" << endl
              << "  barcode_prefix : prefix of file found in barcode directory" << endl
-             << "  db : output database" << endl
-             << "  bam : BAM to be parsed" << endl;
+             << "  anno : .featureCounts file"  << endl
+             << "  bam : BAM to be parsed" << endl
+             << "  outfile : output file" << endl;
         cout << desc << endl;
         return SUCCESS;
       }

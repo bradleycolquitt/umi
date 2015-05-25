@@ -11,6 +11,7 @@ class BamRecord;
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <vector>
 #include <map>
 #include <unordered_map>
@@ -29,7 +30,7 @@ using namespace std;
 class UmiHash
 {
     public:
-        void update(BamRecord * record);
+        bool update(BamRecord * record);
 
         unordered_map<int, int >::iterator begin()
         {
@@ -47,7 +48,7 @@ class UmiHash
 class BarcodeHash
 {
     public:
-        void update(BamRecord * record);
+        bool update(BamRecord * record);
 
         unordered_map<int, unique_ptr<UmiHash> >::iterator begin()
         {
@@ -66,7 +67,7 @@ class BarcodeHash
 class PositionHash
 {
     public:
-        void update(BamRecord * record);
+        bool update(BamRecord * record);
 
         unordered_map<int, unique_ptr<BarcodeHash> >::iterator begin()
         {
@@ -90,6 +91,7 @@ class BamHash
             boost::filesystem::path dest_path;
 
             samFile* bam;
+            samFile* outbam;
             bam_hdr_t* header;
             map<int,char*> chroms;
             hts_idx_t* idx;
@@ -101,6 +103,7 @@ class BamHash
 
             unordered_map<string, string> anno_map;
             unordered_map<string, unique_ptr<PositionHash> > position_map;
+            unordered_map<bool, unique_ptr<PositionHash> > strand_position_map;
 
     public:
             BamHash(const char* bam_fname, const char* anno_name,
@@ -116,6 +119,7 @@ class BamHash
 
             /* Gettors */
             samFile* get_bam() { return bam; }
+            samFile* get_outbam() { return outbam; }
             bam_hdr_t* get_header() { return header; }
             hts_idx_t* get_idx() { return idx; }
             int get_rlen(int tid) { return header->target_len[tid]; }
@@ -126,14 +130,17 @@ class BamHash
             vector<vector<int> >* get_barcodes() { return &barcodes; }
             vector<int>* get_bc_offsets() { return &bc_offsets; }
             int get_bc_min_qual() { return bc_min_qual; }
+            unordered_map<string, string> * get_anno_map() { return &anno_map; }
 
             /* Other */
            void run();
            void hash_reads();
            void insert_anno(const string & read_id, const string & gene_id);
            bool find_read(bam1_t * b, BamRecord * record);
-           void update_maps(BamRecord * record);
+           bool update_maps(BamRecord * record);
+           void clear_map();
            void print_results();
+
 };
 
 void hash_annotation(BamHash* bamhash);

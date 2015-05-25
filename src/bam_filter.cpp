@@ -6,7 +6,7 @@ BamHash::BamHash(const char* bam_fname, const char* anno_fname, const char* dest
     , anno_fname(anno_fname)
     , dest_fname(dest_fname)
     , bc_min_qual(bc_min_qual)
-    {
+{
     bam = sam_open(bam_fname, "rb");
     header = sam_hdr_read(bam);
     idx = bam_index_load(bam_fname);
@@ -20,7 +20,6 @@ BamHash::BamHash(const char* bam_fname, const char* anno_fname, const char* dest
     dest_path = boost::filesystem::complete(dest_fname_path);
     outbam = sam_open(dest_path.string().c_str(), "wb");
     bam_hdr_write(outbam->fp.bgzf, header);
-    //outfile.open(dest_path.string(), ofstream::out);
 
     //Barcode setup
     char bc_path[255];
@@ -87,29 +86,41 @@ bool BarcodeHash::update(BamRecord * record)
 {
     pair<unordered_map<int, unique_ptr<UmiHash> >::const_iterator, bool> result;
     result = umi_map.emplace(record->get_bc(), unique_ptr<UmiHash>(new UmiHash));
-    return result.first->second->update(record);
+    if ( result.second )
+    {
+        return false;
+    }
+    else
+    {
+        return result.first->second->update(record);
+    }
 }
 
 bool PositionHash::update(BamRecord * record)
 {
     pair<unordered_map<int, unique_ptr<BarcodeHash> >::const_iterator, bool> result;
     result = barcode_map.emplace(record->get_pos(), unique_ptr<BarcodeHash>(new BarcodeHash));
-    return result.first->second->update(record);
+    if ( result.second )
+    {
+        return false;
+    }
+    else
+    {
+        return result.first->second->update(record);
+    }
 }
-
-// bool StrandHash::update(BamRecord * record)
-// {
-//     pair<unordered_map<int, unique_ptr<PositionHash> >::const_iterator, bool> result;
-//     result = position_map.emplace(record->get_pos(), unique_ptr<PositionHash>(new PositionHash));
-//     return result.first->second->update(record);
-// }
 
 bool BamHash::update_maps(BamRecord * record)
 {
     pair<unordered_map<bool, unique_ptr<PositionHash> >::const_iterator, bool> result;
     result = strand_position_map.emplace(record->get_strand(),
                                   unique_ptr<PositionHash>(new PositionHash()));
-    return result.first->second->update(record);
+    if ( result.second ) {
+        /* Initialized strand */
+        return false;
+    } else {
+        return result.first->second->update(record);
+    }
 }
 
 void print_bam_record(BamHash * bamhash, bam1_t* b)

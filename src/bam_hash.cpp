@@ -2,7 +2,7 @@
 
 using namespace std;
 
-void UmiHash::update(BamRecord* record)
+bool UmiHash::update(BamRecord* record)
 {
     pair<unordered_map<int, int>::const_iterator, bool> result;
     uint32_t umi = record->get_umi();
@@ -10,20 +10,22 @@ void UmiHash::update(BamRecord* record)
     if (!result.second) {
         ++umi_map[umi];
     }
+    return result.second;
 }
 
-void BarcodeHash::update(BamRecord * record)
+bool BarcodeHash::update(BamRecord * record)
 {
     pair<unordered_map<int, unique_ptr<UmiHash> >::const_iterator, bool> result;
     result = umi_map.emplace(record->get_bc(), unique_ptr<UmiHash>(new UmiHash));
-    result.first->second->update(record);
+    return result.first->second->update(record);
+
 }
 
-void PositionHash::update(BamRecord * record)
+bool PositionHash::update(BamRecord * record)
 {
     pair<unordered_map<int, unique_ptr<BarcodeHash> >::const_iterator, bool> result;
     result = barcode_map.emplace(record->get_pos(), unique_ptr<BarcodeHash>(new BarcodeHash));
-    result.first->second->update(record);
+    return result.first->second->update(record);
 }
 
 // Main Bamhash constructor
@@ -114,12 +116,14 @@ bool BamHash::find_read(bam1_t * b, BamRecord * record)
     }
 }
 
-void BamHash::update_maps(BamRecord * record)
+bool BamHash::update_maps(BamRecord * record)
+//void BamHash::update_maps(BamRecord * record)
 {
     pair<unordered_map<string, unique_ptr<PositionHash> >::const_iterator, bool> result;
     result = position_map.emplace(record->get_gene_id(),
                                   unique_ptr<PositionHash>(new PositionHash()));
     result.first->second->update(record);
+    return true;
 }
 
 void hash_annotation(BamHash* bamhash)
