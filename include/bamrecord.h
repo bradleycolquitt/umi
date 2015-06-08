@@ -3,7 +3,7 @@
 
 class BamHash;
 
-#include <bam_hash.h>
+#include <bam_hash2.h>
 #include <htslib/sam.h>
 #include <string>
 
@@ -21,6 +21,7 @@ class BamRecord
         uint32_t umi;
     public:
         BamRecord(int tid);
+        BamRecord(const string read_id, const string gene_id);
         string get_read_id() { return read_id; }
         string get_gene_id() { return gene_id; }
         bool get_strand() { return strand; }
@@ -31,9 +32,12 @@ class BamRecord
         void set_read_id( string val ) { read_id = val; }
         void set_gene_id( string val ) { gene_id = val; }
         void set_strand ( bam1_t * b) { strand = (b->core.flag&BAM_FREVERSE) == 0; }
+        void set_tid(uint32_t val) { tid = val; }
         void set_position( uint32_t val ) { pos = val; }
         void set_bc(BamHash * bamhash, bam1_t * b, int * used_offset);
         void set_umi(BamHash * bamhash, bam1_t * b, int used_offset);
+
+        bool is_complete();
 };
 
 #endif

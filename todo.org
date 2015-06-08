@@ -24,4 +24,7 @@ CLOSED: [2015-04-10 Fri 09:18]
 *** hash table of gene, pos, bc, umi 
 **** concatenate values
 **** 
-** 
+* Change read in of annotation_file
+** while(anno >> read_id >> assigned >> gene_id) resulted in skipped reads
+** changed to (getline(anno, line)) followed by istringstream into variables
+

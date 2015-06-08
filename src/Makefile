@@ -2,6 +2,8 @@ CC=g++
 TARGET_NAME = ../load2db
 HASH_NAME = ../bam_hash
 HASH_TEST_NAME = ../test_hash
+HASH2_NAME = ../bam_hash2
+HASH2_TEST_NAME = ../test_hash2
 FILTER_NAME = ../bam_filter
 FILTER_TEST_NAME = ../test_filter
 TEST_NAME = ../test
@@ -11,6 +13,8 @@ TEST_THREAD_NAME = ../test_thread
 TARGET_SRCS = load2db_merge.cpp
 HASH_SRCS = bam_hash_main.cpp bam_hash.cpp bamrecord.cpp
 HASH_TEST_SRCS = test_hash.cpp bam_hash.cpp bamrecord.cpp
+HASH2_SRCS = bam_hash2_main.cpp bam_hash2.cpp bamrecord.cpp
+HASH2_TEST_SRCS = test_hash2.cpp bam_hash2.cpp bamrecord.cpp
 FILTER_SRCS = bam_filter_main.cpp bam_filter.cpp bamrecord.cpp
 FILTER_TEST_SRCS = test_filter.cpp bam_filter.cpp bamrecord.cpp
 TEST_SRCS = test_merge.cpp
@@ -23,6 +27,8 @@ COMMON_OBJS := ${COMMON_SRCS:.cpp=.o}
 TARGET_OBJ = ${TARGET_SRCS:.cpp=.o}
 HASH_OBJ = ${HASH_SRCS:.cpp=.o}
 HASH_TEST_OBJ = ${HASH_TEST_SRCS:.cpp=.o}
+HASH2_OBJ = ${HASH2_SRCS:.cpp=.o}
+HASH2_TEST_OBJ = ${HASH2_TEST_SRCS:.cpp=.o}
 FILTER_OBJ = ${FILTER_SRCS:.cpp=.o}
 FILTER_TEST_OBJ = ${FILTER_TEST_SRCS:.cpp=.o}
 TEST_OBJ = ${TEST_SRCS:.cpp=.o}
@@ -63,6 +69,14 @@ test_hash: CPPFLAGS += -DDEBUG -g -O3
 test_hash: COMMON_SRCS += $(HASH_TEST_SRCS)
 test_hash: $(HASH_TEST_NAME)
 
+hash2: CPPFLAGS += -O3
+hash2: COMMON_SRCS += $(HASH2_SRCS)
+hash2: $(HASH2_NAME)
+
+test_hash2: CPPFLAGS += -DDEBUG -g -O3
+test_hash2: COMMON_SRCS += $(HASH2_TEST_SRCS)
+test_hash2: $(HASH2_TEST_NAME)
+
 filter: CPPFLAGS += -O3
 filter: COMMON_SRCS += $(FILTER_SRCS)
 filter: $(FILTER_NAME)
@@ -89,6 +103,12 @@ $(HASH_NAME): $(HASH_OBJ) $(COMMON_OBJS)
 $(HASH_TEST_NAME): $(HASH_TEST_OBJ) $(COMMON_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(TEST_LDFLAGS)
 
+$(HASH2_NAME): $(HASH2_OBJ) $(COMMON_OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+$(HASH2_TEST_NAME): $(HASH2_TEST_OBJ) $(COMMON_OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS) $(TEST_LDFLAGS)
+
 $(FILTER_NAME): $(FILTER_OBJ) $(COMMON_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
@@ -99,5 +119,5 @@ $(FILTER_TEST_NAME): $(FILTER_TEST_OBJ) $(COMMON_OBJS)
 	$(CC) $(CPPFLAGS) -c -o $@ $<
 
 clean:
-	@- $(RM) $(TARGET_NAME) $(TEST_NAME) $(TEST_FILTER_NAME)
-	@- $(RM) $(COMMON_OBJS) $(TARGET_OBJ) $(TEST_OBJ) $(TEST_FILTER_OBJ)
+	@- $(RM) $(TARGET_NAME) $(TEST_NAME) $(TEST_FILTER_NAME) $(HASH2_NAME) $(TEST_HASH2_NAME)
+	@- $(RM) $(COMMON_OBJS) $(TARGET_OBJ) $(TEST_OBJ) $(TEST_FILTER_OBJ) $(HASH2_OBJ) $(TEST_HASH2_OBJ)
