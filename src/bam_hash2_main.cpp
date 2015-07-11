@@ -98,24 +98,22 @@ int main(int argc, char** argv) {
     int i5 = vm["i5"].as<int>();
     int i7 = vm["i7"].as<int>();
     bool to_txt = vm["print-to-txt"].as<bool>();
-    cout << to_txt << endl;
-
 
     BamHash * bamhash = new BamHash(bam_fname, fastq_fname, anno_fname, dest_fname, barcodes, umi_length, bc_min_qual, i5, i7, to_txt);
 
     hash_annotation(bamhash);
     bamhash->hash_reads();
 
+    cout << "----Outputting results----" << endl;
     if (to_txt == 1)
     {
-        cout << "txt" << endl;
         bamhash->print_results();
     }
     else
     {
-        cout << "db" << endl;
         bamhash->write_to_db();
     }
+
     delete bamhash;
     return 0;
 }

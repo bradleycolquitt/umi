@@ -48,7 +48,6 @@ BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* ann
     , i7(i7)
     , to_txt(to_txt)
     {
-    cout << fastq_fname << endl;
     bam = sam_open(bam_fname, "rb");
 
     header = sam_hdr_read(bam);
@@ -107,9 +106,7 @@ BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* ann
     size_t bc_length = sizeof(barcodes[0]) / sizeof(barcodes[0][0]);
     sequence_pos.push_back(sequence_pos[2] + bc_length - 1);
 
-    for (auto& pos : sequence_pos) {
-        cout << pos << endl;
-    }
+
 
     // defines offsets used during barcode search
     int offsets_array[] = {0,-1,1};
@@ -211,7 +208,8 @@ bool BamHash::update_maps(shared_ptr<BamRecord> record)
 
 void hash_annotation(BamHash* bamhash)
 {
-    cout << "Loading annotation..." << endl;
+    cout << endl;
+    cout << "----Loading annotation----" << endl;
     ifstream anno(bamhash->get_anno_fname());
 
     string line;
@@ -227,72 +225,16 @@ void hash_annotation(BamHash* bamhash)
             bamhash->insert_anno(read_id, gene_id);
         }
     }
-    cout << "hash count: " << hash_count << endl;
+    cout << "Number of reads in annotation set: " << hash_count << endl;
+    cout << endl;
 }
 
-//void process_read1(BamHash* bamhash, BamRecord * record, bam1_t* b)
-//void process_read1(BamHash* bamhash, shared_ptr<BamRecord> record, bam1_t* b)
 void process_read2(BamHash* bamhash, shared_ptr<BamRecord> record, bam1_t* b)
-//void process_read1(BamHash* bamhash, bam1_t* b)
 {
     if (bad_cigar(b)) return;
     if (filter_multi_reads(b)) return;
     record->set_position(b->core.pos);
     record->set_tid(b->core.tid);
-}
-
-//void process_read2(BamHash* bamhash, BamRecord* record, bam1_t* b)
-//void process_read2(BamHash* bamhash, shared_ptr<BamRecord> record, bam1_t* b)
-//void process_read2(BamHash* bamhash, bam1_t* b)
-// void process_read1(BamHash* bamhash, shared_ptr<BamRecord> record, bam1_t* b)
-// {
-//     int used_offset = 0;
-//     record->set_bc(bamhash, b, &used_offset);
-//     record->set_umi(bamhash, b, used_offset);
-// }
-
-//int hash_reads_tid(BamHash* bamhash, BamRecord * record, hts_itr_t* bam_itr)
-int hash_reads_tid(BamHash* bamhash, hts_itr_t* bam_itr)
-{
-    bam1_t* b = bam_init1();
-    int result;
-    shared_ptr<BamRecord> record;
-    int continue_count = 0;
-    int not_complete = 0;
-    cout << "hash_reads_tid" << endl;
-    while ((result = sam_itr_next(bamhash->get_bam(), bam_itr, b)) >= 0)
-    {
-
-        if (!bamhash->find_read(b, record)) // sets record to qname_bamrecord
-        {
-            cout << bam_get_qname(b) << endl;
-            continue_count++;
-            continue;
-        }
-        //if ((b->core.flag&BAM_FREAD1) != 0)
-        cout << b->core.flag << endl;
-        if ((b->core.flag&BAM_FUNMAP) != 0)
-        {
-            cout << "unmap" << endl;
-            process_read1(bamhash, record, b);
-        }
-    }
-    //     else
-    //     {
-
-    //         process_read2(bamhash, record, b);
-    //     }
-
-    //     if (record->is_complete())
-    //     {
-    //         not_complete++;
-    //         bamhash->update_maps(record);
-    //     }
-
-    // }
-    cout << "Reads not found in gene set: " << continue_count << endl;
-    bam_destroy1(b);
-    return 0;
 }
 
 int hash_reads_all(BamHash* bamhash)
@@ -302,7 +244,7 @@ int hash_reads_all(BamHash* bamhash)
     shared_ptr<BamRecord> record;
     int continue_count = 0;
     int complete = 0;
-    cout << "hash_reads_all" << endl;
+
     while ((result = bam_read1(bamhash->get_bam()->fp.bgzf, b)) >= 0)
     {
         if (!bamhash->find_read(b, record)) // sets record to qname_bamrecord
@@ -343,7 +285,7 @@ int parse_fastq(BamHash* bamhash) {
             bamhash->update_maps(record);
         }
     }
-    cout << "complete: " << complete << endl;
+    cout << "Completed records: " << complete << endl;
     kseq_destroy(seq);
     gzclose(fp);
 }
@@ -418,7 +360,6 @@ void BamHash::write_to_db()
                     sqlite3_bind_int(insert_stmt, 3, barcode->first);
                     sqlite3_bind_text(insert_stmt, 4, gene.first.c_str(), -1, SQLITE_TRANSIENT);
                     sqlite3_bind_int(insert_stmt, 5, position->first);
-                    //sqlite3_bind_int(insert_stmt, 6, umi->first);
                     sqlite3_bind_text(insert_stmt, 6, umi->first.c_str(), -1, SQLITE_TRANSIENT);
                     sqlite3_bind_int(insert_stmt, 7, umi->second);
 
@@ -437,30 +378,11 @@ void BamHash::write_to_db()
 
 void BamHash::hash_reads()
 {
-    cout << "Hashing reads..." << endl;
-    hts_itr_t* bam_itr;
-    cout << qname_bamrecord.size() << endl;
-    int total = header->n_targets;
-    cout << total << endl;
-    int measure = round(total)/10;
-    //for (int tid = 0; tid < header->n_targets; ++tid)
-    //{
-    //    cout << tid << endl;
-        // if (measure>1)
-        // {
-        //     if ((tid % measure) == 0)
-        //     {
-        //         cout << "-";
-        //         cout.flush();
-        //     }
-        // }
-   //     bam_itr = bam_itr_queryi(idx, tid, 0, get_rlen(tid));
-   //     hash_reads_tid(this, bam_itr);
+    cout << "----Hashing reads----" << endl;
     hash_reads_all(this);
-        //delete record;
-    //    bam_itr_destroy(bam_itr);
-    //}
-    cout << "Parsing information reads..." << endl;
+    cout << endl;
+
+    cout << "----Parsing information reads----" << endl;
     parse_fastq(this);
     cout << endl;
 
