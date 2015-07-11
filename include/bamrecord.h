@@ -19,6 +19,7 @@ class BamRecord
         uint32_t pos;
         int bc;
         uint32_t umi;
+        string umi2;
     public:
         BamRecord(int tid);
         BamRecord(const string read_id, const string gene_id);
@@ -28,6 +29,7 @@ class BamRecord
         uint32_t get_pos() { return pos; }
         int get_bc() { return bc; }
         uint32_t get_umi() { return umi; }
+        string get_umi2() { return umi2; }
 
         void set_read_id( string val ) { read_id = val; }
         void set_gene_id( string val ) { gene_id = val; }
@@ -36,6 +38,8 @@ class BamRecord
         void set_position( uint32_t val ) { pos = val; }
         void set_bc(BamHash * bamhash, bam1_t * b, int * used_offset);
         void set_umi(BamHash * bamhash, bam1_t * b, int used_offset);
+        void set_bc(BamHash * bamhash, char * seq, char * qual, int * used_offset);
+        void set_umi(BamHash * bamhash, char * seq, char * qual, int used_offset);
 
         bool is_complete();
 };

@@ -40,7 +40,7 @@ CPPFLAGS += $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 CPPFLAGS += -std=c++11 -W -Wall -Wno-long-long -pedantic -Wno-variadic-macros -fno-omit-frame-pointer
 
 LIBRARY_DIRS := /usr/local/lib
-LIBS += hts sqlite3 boost_regex boost_program_options boost_system boost_filesystem boost_thread rt
+LIBS += hts sqlite3 boost_regex boost_program_options boost_system boost_filesystem boost_thread rt z
 LDFLAGS += $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))
 LDFLAGS += $(foreach library, $(LIBS), -l$(library))
 TEST_LDFLAGS = -lprofiler -ltcmalloc
@@ -69,7 +69,7 @@ test_hash: CPPFLAGS += -DDEBUG -g -O3
 test_hash: COMMON_SRCS += $(HASH_TEST_SRCS)
 test_hash: $(HASH_TEST_NAME)
 
-hash2: CPPFLAGS += -O3
+hash2: CPPFLAGS += -O3 -g
 hash2: COMMON_SRCS += $(HASH2_SRCS)
 hash2: $(HASH2_NAME)
 

@@ -18,16 +18,17 @@ using namespace std;
 
 int main() {
     //const char* bam_fname = "/home/brad/src/umi/test_files/load2db_test_qsort_1M.bam";
-    const char* bam_fname = "/media/data/bam/150403/ercc_cat_space/lib40/lib40_clip18Aligned.bam";
+    const char* bam_fname = "/media/data/bam/150709/ercc_cat_space/lib44-exo/lib44-exo_merge.bam";
     //const char* anno_fname = "/home/brad/src/umi/test_files/load2db_test_qsort_1M.bam.featureCounts";
-    const char* anno_fname = "/media/data/bam/150403/ercc_cat_space/lib40/lib40_clip18Aligned.bam.featureCounts";
+    const char* fastq_fname = "/media/data/miseq/150709/lib44-exo_S1_L001_R1_001.fastq.gz";
+    const char* anno_fname = "/media/data/bam/150709/ercc_cat_space/lib44-exo/lib44-exoAligned.bam.featureCounts";
     const char* dest_fname = "/home/brad/src/umi/test_files/out.txt";
 
-    BamHash* bamhash = new BamHash(bam_fname, anno_fname, dest_fname, "bc8", 8, 10, 1, 1);
+    BamHash* bamhash = new BamHash(bam_fname, fastq_fname, anno_fname, dest_fname, "bc8", 8, 10, 1, 1, true);
 
 
     #ifdef PROFILE
-    ProfilerStart("/home/brad/src/umi/profiling/test_hash_1M.prof");
+    ProfilerStart("/home/brad/src/umi/profiling/test_hash2_1M.prof");
     //HeapProfilerStart("/home/brad/src/umi/profiling/test_merge.heap");
     #endif
 

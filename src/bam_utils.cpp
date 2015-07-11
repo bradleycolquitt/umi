@@ -124,16 +124,31 @@ int filter_multi_reads(bam1_t* b) {
     return 0;
 }
 
-int compare_barcode_local(vector<vector<int> >::iterator bc_iter, uint8_t* seq, int start, int end) {
+int compare_barcode_local(vector<vector<int> >::iterator bc_iter, uint8_t* seq, int start, int end){
     int k = 0;
     int mm = 0;
 
     for (int j = start; j <= end ; ++j) {
         if (mm > 1) return 0; // return after second mismatch
-        //if ((*bc_iter)[k] != bam_seqi(seq, j)) mm += 1;
         if ((*bc_iter)[k] != seq[j]) mm += 1;
         ++k;
     }
+    return 1; // match found
+}
+
+int compare_barcode_local(vector<const char*>::iterator bc_iter, char* seq, int start, int end)
+{
+    int k = 0;
+    int mm = 0;
+
+    for (int j = start; j <= end ; ++j)
+    {
+        if (mm > 1) return 0; // return after second mismatch
+
+        if ((*bc_iter)[k] != seq[j]) mm += 1;
+        ++k;
+    }
+
     return 1; // match found
 }
 
@@ -149,7 +164,6 @@ int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, vector<int>* b
     vector<vector<int> >::iterator bc_iter_end = barcodes->end();
 
     int i = 0;
-    //print_uint8(seq, 50, false);
     for (; offsets_iter != offsets_iter_end; ++offsets_iter) {
         bc_iter = barcodes->begin();
         for (; bc_iter != bc_iter_end ; ++bc_iter) {
@@ -166,10 +180,33 @@ int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, vector<int>* b
     return -2;
 }
 
+int compare_barcode(char* seq, vector<const char*>* barcodes, vector<int>* bc_offsets, int start, int end, int* used_offset) {
+
+    vector<int>::iterator offsets_iter = bc_offsets->begin();
+    vector<int>::iterator offsets_iter_end = bc_offsets->end();
+    vector<const char*>::iterator bc_iter;
+    vector<const char*>::iterator bc_iter_end = barcodes->end();
+
+    int i = 0;
+    for (; offsets_iter != offsets_iter_end; ++offsets_iter) {
+        bc_iter = barcodes->begin();
+        for (; bc_iter != bc_iter_end ; ++bc_iter) {
+
+            if (compare_barcode_local(bc_iter, seq, start + *offsets_iter, end + *offsets_iter)) {
+                *used_offset = *offsets_iter;
+                return i;
+            }
+            ++i;
+        }
+        i = 0;
+    }
+    return -2;
+}
+
 //for barcodes
 int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes, \
-                 vector<int>* bc_offsets, int min_qual, int* used_offset) {
-
+                 vector<int>* bc_offsets, int min_qual, int* used_offset)
+{
     int seqlen = bam_cigar2qlen(b->core.n_cigar, bam_get_cigar(b));
     uint8_t seq[seqlen];
     uint8_t qual[seqlen];
@@ -188,7 +225,22 @@ int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes, 
     return compare_barcode(seq, barcodes, bc_offsets, start, end, used_offset);
 }
 
-int ShiftAdd(int sum, int digit) {
+int get_sequence(char* seq, char* qual, int start, int end, vector<const char*>* barcodes, \
+                 vector<int>* bc_offsets, int min_qual, int* used_offset)
+{
+    int min = 100000;
+    int qual_int;
+    for (int j = start; j <= end ; ++j) {
+        qual_int = int(qual[j]);
+        if (qual_int < min) min = qual_int;
+    }
+    if (min < min_qual) return -1;
+    // returns index of perfect match or one mismatch
+    return compare_barcode(seq, barcodes, bc_offsets, start, end, used_offset);
+}
+
+int ShiftAdd(int sum, int digit)
+{
     return sum*10 + digit;
 }
 
@@ -260,8 +312,38 @@ uint32_t get_sequence(bam1_t* b, int start, int end, int used_offset) {
     }
 }
 
-void print_uint8 (uint8_t* arr, int seqlen, bool convert) {
-    //size_t len = sizeof(arr)/sizeof(arr[0]);
+//intended for umi
+string get_sequence(char* seq, char* qual, int start, int end, int used_offset)
+{
+    string sseq = string(seq);
+    int local_start = start + used_offset;
+    int local_end = end + used_offset;
+
+    //int d = 0;
+    // occurrs if sequencing is truncated at beginning
+    if (local_start < 0)
+    {
+        local_start = 0;
+    //    d = abs(used_offset);
+    }
+
+    int min = 100000;
+    for (int j = local_start; j <= local_end ; ++j)
+    {
+        if (int(qual[j]) < min) min = int(qual[j]);
+    }
+
+    if (min < 20)
+    {
+        return "NNNNNNNN";
+    } else
+    {
+        return sseq.substr(local_start, local_end - local_start + 1);
+    }
+}
+
+void print_uint8 (uint8_t* arr, int seqlen, bool convert)
+{
     for (int i = 0 ; i < seqlen ; ++i) {
         if (convert) {
             printf("%d", bam_seqi(arr, i));

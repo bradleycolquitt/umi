@@ -41,11 +41,15 @@ Find matching sequence in read[start:end] in barcodes vector
 */
 int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes, \
                  vector<int>* bc_offsets, int min_qual, int* used_offset);
+
+int get_sequence(char* seq, char* qual, int start, int end, vector<const char*>* barcodes, \
+                 vector<int>* bc_offsets, int min_qual, int* used_offset);
 /*
 Extract UMI sequence from read[start:end]
 @used_offset, position offset used in barcode ID
 */
 uint32_t get_sequence(bam1_t* b, int start, int end, int used_offset);
+string get_sequence(char* seq, char* qual, int start, int end, int used_offset);
 
 /*
 used to combine vector of ints into one number

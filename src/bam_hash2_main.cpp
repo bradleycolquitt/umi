@@ -33,6 +33,7 @@ int main(int argc, char** argv) {
         ("barcode", po::value<string>(), "prefix of barcode file")
         ("anno", po::value<string>())
         ("bam", po::value<string>())
+        ("fastq", po::value<string>())
         ("outfile", po::value<string>())
     ;
 
@@ -40,6 +41,7 @@ int main(int argc, char** argv) {
     positionalOptions.add("barcode", 1);
     positionalOptions.add("anno", 1);
     positionalOptions.add("bam", 1);
+    positionalOptions.add("fastq", 1);
     positionalOptions.add("outfile", 1);
 
     po::variables_map vm;
@@ -85,6 +87,7 @@ int main(int argc, char** argv) {
     }
 
     const char* bam_fname = convert_to_cstr(vm["bam"].as<string>());
+    const char* fastq_fname = convert_to_cstr(vm["fastq"].as<string>());
     const char* dest_fname = convert_to_cstr(vm["outfile"].as<string>());
     const char* anno_fname = convert_to_cstr(vm["anno"].as<string>());
     const char* barcodes = convert_to_cstr(vm["barcode"].as<string>());
@@ -98,7 +101,7 @@ int main(int argc, char** argv) {
     cout << to_txt << endl;
 
 
-    BamHash * bamhash = new BamHash(bam_fname, anno_fname, dest_fname, barcodes, umi_length, bc_min_qual, i5, i7, to_txt);
+    BamHash * bamhash = new BamHash(bam_fname, fastq_fname, anno_fname, dest_fname, barcodes, umi_length, bc_min_qual, i5, i7, to_txt);
 
     hash_annotation(bamhash);
     bamhash->hash_reads();

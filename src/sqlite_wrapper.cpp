@@ -34,7 +34,7 @@ void execute(sqlite3** conn, const char* sql) {
 // DOESN'T WORK
 int prepare_statment(sqlite3* conn, const char* sql, sqlite3_stmt** stmt) {
     int result = 0;
-    DEBUG_LOG(sql);
+    //DEBUG_LOG(sql);
     if ((result = sqlite3_prepare_v2(conn, sql, -1, stmt, NULL)) != SQLITE_OK) {
         throw sql_exception(result, sqlite3_errmsg(conn));
     }
@@ -43,7 +43,7 @@ int prepare_statment(sqlite3* conn, const char* sql, sqlite3_stmt** stmt) {
 
 int prepare_statment(sqlite3** conn, const char* sql, sqlite3_stmt** stmt, const char** tail) {
     int result = 0;
-    DEBUG_LOG(sql);
+    //DEBUG_LOG(sql);
     if ((result = sqlite3_prepare_v2(*conn, sql, -1, stmt, tail)) != SQLITE_OK) {
         throw sql_exception(result, sqlite3_errmsg(*conn), "prepare_statement");
     }
@@ -62,7 +62,7 @@ int bind(sqlite3* conn, sqlite3_stmt* stmt, int index, int value) {
 int bind(sqlite3* conn, sqlite3_stmt* stmt, int index, const char* text) {
     int result = 0;
     cerr << text << endl;
-    DEBUG_LOG(text);
+    //DEBUG_LOG(text);
     if ((result = sqlite3_bind_text(stmt, index, text, -1, SQLITE_TRANSIENT)) != SQLITE_OK) {
         throw sql_exception(result, sqlite3_errmsg(conn));
     }
@@ -92,7 +92,7 @@ bool step_multiple(sqlite3* conn, const char* sql) {
 
     sqlite3_reset(stmt);
     while (*tail != '\0') {
-        DEBUG_LOG(tail);
+        //DEBUG_LOG(tail);
         result = sqlite3_prepare_v2(conn, tail, -1, &stmt, &tail);
         if (result != SQLITE_OK) {
             throw sql_exception { result, sqlite3_errmsg(conn)};
