@@ -75,6 +75,7 @@ BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* ann
         catch (sql_exception &e)
         {
             cerr << "! Error: opening databases, " << e.what() << endl;
+            exit(1);
         }
 
         try
@@ -93,7 +94,6 @@ BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* ann
     strcat(bc_path, barcodes_fname);
     strcat(bc_path, ".txt");
     try {
-        //set_barcodes(bc_path, barcodes);
         set_barcodesA(bc_path, barcodesA);
     } catch (exception &e) {
         cout << e.what() << endl;
@@ -105,8 +105,6 @@ BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* ann
     sequence_pos.push_back(umi_length);
     size_t bc_length = sizeof(barcodes[0]) / sizeof(barcodes[0][0]);
     sequence_pos.push_back(sequence_pos[2] + bc_length - 1);
-
-
 
     // defines offsets used during barcode search
     int offsets_array[] = {0,-1,1};
@@ -152,9 +150,7 @@ void BamHash::set_barcodesA(const char* fname, vector<const char*>& vec_p)
            cout << "Error" << endl;
         }
         vector<string> sline = split(line, '\t');
-        //vector<int> s2i = seq2int(sline[1]);
         const char* bc = sline[1].c_str();
-        //cout << bc << endl;
         vec_p.push_back(strdup(bc));
 
     }
@@ -195,9 +191,7 @@ bool BamHash::find_read(char * qname, shared_ptr<BamRecord> & record)
     }
 }
 
-//bool BamHash::update_maps(BamRecord * record)
 bool BamHash::update_maps(shared_ptr<BamRecord> record)
-//void BamHash::update_maps(BamRecord * record)
 {
     pair<unordered_map<string, unique_ptr<PositionHash> >::const_iterator, bool> result;
     result = position_map.emplace(record->get_gene_id(),
@@ -242,11 +236,13 @@ int hash_reads_all(BamHash* bamhash)
     bam1_t* b = bam_init1();
     int result;
     shared_ptr<BamRecord> record;
+    int total_count = 0;
     int continue_count = 0;
     int complete = 0;
 
     while ((result = bam_read1(bamhash->get_bam()->fp.bgzf, b)) >= 0)
     {
+        total_count++;
         if (!bamhash->find_read(b, record)) // sets record to qname_bamrecord
         {
             continue_count++;
@@ -254,7 +250,9 @@ int hash_reads_all(BamHash* bamhash)
         }
         process_read2(bamhash, record, b);
     }
-    cout << "Reads not found in gene set: " << continue_count << endl;
+    float fraction_not_found = 100 * continue_count / total_count;
+    cout << "Total reads:                 " << total_count << endl;
+    cout << "Reads not found in gene set: " << continue_count << " (" << roundf(fraction_not_found) << "%)"<< endl;
     bam_destroy1(b);
     return 0;
 }
@@ -373,6 +371,7 @@ void BamHash::write_to_db()
             }
         }
     }
+    execute(conn, "COMMIT");
     sqlite3_finalize(insert_stmt);
 }
 
