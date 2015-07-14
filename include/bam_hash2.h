@@ -55,7 +55,6 @@ class UmiHash
             return umi_map.end();
         }
     private:
-        //unordered_map<int, int> umi_map;
         unordered_map<string, int> umi_map;
 };
 
@@ -131,7 +130,8 @@ class BamHash
             unordered_map<string, shared_ptr<BamRecord> > qname_bamrecord;
             //unordered_map<string, BamRecord> qname_bamrecord;
             //unordered_set<BamRecord> bamrecord_set;
-            unordered_map<string, unique_ptr<PositionHash> > position_map;
+            //unordered_map<string, unique_ptr<PositionHash> > position_map;
+            unordered_map<string, unique_ptr<BarcodeHash> > position_map;
             unordered_map<bool, shared_ptr<PositionHash> > strand_position_map;
 
     public:
