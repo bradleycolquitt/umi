@@ -228,6 +228,7 @@ int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes, 
 int get_sequence(char* seq, char* qual, int start, int end, vector<const char*>* barcodes, \
                  vector<int>* bc_offsets, int min_qual, int* used_offset)
 {
+    //cout << "here get_sequence" << endl;
     int min = 100000;
     int qual_int;
     for (int j = start; j <= end ; ++j) {
@@ -236,6 +237,7 @@ int get_sequence(char* seq, char* qual, int start, int end, vector<const char*>*
         if (qual_int < min) min = qual_int;
     }
     if (min < min_qual) return -1;
+
     // returns index of perfect match or one mismatch
     return compare_barcode(seq, barcodes, bc_offsets, start, end, used_offset);
 }
@@ -284,31 +286,6 @@ uint32_t get_sequence(bam1_t* b, int start, int end, int used_offset) {
             }
         }
         uint32_t umi(accumulate(umi_int.begin(), umi_int.end(), 0, ShiftAdd));
-        if (umi < 10000000) {
-            for (int i=0; i < umi_int_size; i++) {
-               cerr << umi_int[i];
-            }
-            for (int i = 0 ; i < 2*sizeof(seq) / sizeof(seq[0]); ++i) {
-                cout << bam_seqi(seq, i);
-            }
-            cout << endl;
-
-            uint8_t * seq2 = bam_get_seq(b);
-            for (int i = 0 ; i < 2*sizeof(seq) / sizeof(seq[0]); ++i) {
-                cout << bam_seqi(seq2, i);
-            }
-            cout << endl;
-            cerr << "d: " << d << endl;
-            cerr << "start: " << start << endl;
-            cerr << "end: " << end << endl;
-            cerr << "used offset: " << used_offset << endl;
-            cerr << "local_start: " << local_start << endl;
-            cerr << "local_end: " << local_end << endl;
-            cerr << "rev?: " << bam_is_rev(b) << endl;
-            cerr << endl;
-            cerr << umi << endl;
-            exit(1);
-        }
         return umi;
     }
 }

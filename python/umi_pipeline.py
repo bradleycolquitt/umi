@@ -26,6 +26,7 @@ class Meta:
         self.meta = []
         header = self.meta_file.readline().strip().split(",")
 
+        #self.quality = quality
 
         i = 0
         for line in self.meta_file:
@@ -61,11 +62,11 @@ class Meta:
 def runBamHashWorker(element):
 
     cmd_args = ['bam_hash2',
-                '-q', '20',
+                '-q', element['quality'],
                 '--i7', element['i7'],
                 '--barcode', element['bc'],
                 '--anno', element['bam']+'.featureCounts',
-                '--bam', element['bam'],
+                #'--bam', element['bam'],
                 '--fastq', element['fastq'],
                 '--outfile', element['output']]
     cmd_args_join = " ".join(cmd_args)
@@ -92,8 +93,6 @@ def main(argv):
     args = parser.parse_args()
 
     obj = Meta(args.meta)
-    #pdb.set_trace()
-#    obj.runFeatureCounts()
     runBamHash(obj)
 
 

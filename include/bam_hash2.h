@@ -102,17 +102,17 @@ class PositionHash
 class BamHash
 {
     private:
-            const char* bam_fname;
+//            const char* bam_fname;
             const char* fastq_fname;
             const char* anno_fname;
             const char* dest_fname;
             boost::filesystem::path dest_path;
 
-            samFile* bam;
-            samFile* outbam;
-            bam_hdr_t* header;
-            map<int,char*> chroms;
-            hts_idx_t* idx;
+//            samFile* bam;
+//            samFile* outbam;
+            // bam_hdr_t* header;
+            // map<int,char*> chroms;
+            // hts_idx_t* idx;
 
             sqlite3 * conn;
 
@@ -135,11 +135,14 @@ class BamHash
             unordered_map<bool, shared_ptr<PositionHash> > strand_position_map;
 
     public:
-            BamHash(const char* bam_fname, const char* fastq_fname, const char* anno_name,
+            // BamHash(const char* bam_fname, const char* fastq_fname, const char* anno_name,
+            //         const char* final_fname, const char* barcodes_fname,
+            //         int umi_length, int bc_min_qual, int i5, int i7, bool to_txt);
+            BamHash(const char* fastq_fname, const char* anno_name,
                     const char* final_fname, const char* barcodes_fname,
                     int umi_length, int bc_min_qual, int i5, int i7, bool to_txt);
 
-            ~BamHash();
+            //~BamHash();
 
             ofstream outfile;
 
@@ -149,13 +152,13 @@ class BamHash
 
 
             /* Gettors */
-            samFile* get_bam() { return bam; }
+            //samFile* get_bam() { return bam; }
             const char* get_fastq() { return fastq_fname; }
-            samFile* get_outbam() { return outbam; }
-            bam_hdr_t* get_header() { return header; }
-            hts_idx_t* get_idx() { return idx; }
-            int get_rlen(int tid) { return header->target_len[tid]; }
-            char * get_chrom(int tid) { return chroms[tid]; }
+            //samFile* get_outbam() { return outbam; }
+            //bam_hdr_t* get_header() { return header; }
+            //hts_idx_t* get_idx() { return idx; }
+            //int get_rlen(int tid) { return header->target_len[tid]; }
+            //char * get_chrom(int tid) { return chroms[tid]; }
             const char * get_anno_fname() { return anno_fname; }
             const boost::filesystem::path get_dest_path() { return dest_path; }
             int get_sequence_pos(int i) { return sequence_pos[i]; }

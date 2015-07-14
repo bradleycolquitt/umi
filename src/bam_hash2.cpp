@@ -7,22 +7,22 @@ using namespace std;
 ***************************/
 bool UmiHash::update(shared_ptr<BamRecord> record)
 {
-    bool print = false;
+    //bool print = false;
     pair<unordered_map<string, int>::iterator, bool> result;
     string umi = record->get_umi2();
 
     result = umi_map.emplace(umi, 1);
-    if (record->get_gene_id().compare("ERCC-00116") == 0) {
-        print = true;
-        cout << record->get_read_id() << endl;
-        cout << record->get_umi2() << endl;
-        cout << result.second << endl;
-    }
+    // if (record->get_gene_id().compare("ERCC-00116") == 0) {
+    //     print = true;
+    //     cout << record->get_read_id() << endl;
+    //     cout << record->get_umi2() << endl;
+    //     cout << result.second << endl;
+    // }''
 
     if (!result.second) {
-        if (print) cout << "initial: " << result.first->second << endl;
+        //if (print) cout << "initial: " << result.first->second << endl;
         ++(result.first->second);
-        if (print) cout << "update: " << result.first->second << endl;
+        //if (print) cout << "update: " << result.first->second << endl;
     }
     return result.second;
 }
@@ -44,12 +44,16 @@ bool PositionHash::update(shared_ptr<BamRecord> record)
 /****************************
    BamHash functions
 *****************************/
-BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* anno_fname, \
+// BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* anno_fname, \
+//                  const char* dest_fname, const char* barcodes_fname, int umi_length, \
+//                  int bc_min_qual,                                       \
+//                  int i5, int i7, bool to_txt)
+BamHash::BamHash(const char* fastq_fname, const char* anno_fname, \
                  const char* dest_fname, const char* barcodes_fname, int umi_length, \
                  int bc_min_qual,                                       \
                  int i5, int i7, bool to_txt)
-    : bam_fname(bam_fname)
-    , fastq_fname(fastq_fname)
+    //: bam_fname(bam_fname)
+    : fastq_fname(fastq_fname)
     , anno_fname(anno_fname)
     , dest_fname(dest_fname)
     , bc_min_qual(bc_min_qual)
@@ -57,16 +61,19 @@ BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* ann
     , i7(i7)
     , to_txt(to_txt)
     {
-    bam = sam_open(bam_fname, "rb");
+    //bam = sam_open(bam_fname, "rb");
 
-    header = sam_hdr_read(bam);
+    //header = sam_hdr_read(bam);
 
-    idx = bam_index_load(bam_fname);
+    //idx = bam_index_load(bam_fname);
 
-    char ** chrom_names = header->target_name;
-    for (int i = 0 ; i < header->n_targets ; ++i) {
-        chroms[i] = chrom_names[i];
-    }
+    // char ** chrom_names = header->target_name;
+    // for (int i = 0 ; i < header->n_targets ; ++i) {
+    //     chroms[i] = chrom_names[i];
+    // }
+
+    /* Check existance of files*/
+
 
     boost::filesystem::path dest_fname_path(dest_fname);
     dest_path = boost::filesystem::complete(dest_fname_path);
@@ -120,12 +127,12 @@ BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* ann
     bc_offsets.assign(offsets_array, offsets_array + sizeof(offsets_array) / sizeof(int));
 }
 
-BamHash::~BamHash()
-{
-    sam_close(bam);
-    bam_hdr_destroy(header);
-    hts_idx_destroy(idx);
-}
+// BamHash::~BamHash()
+// {
+//     sam_close(bam);
+//     bam_hdr_destroy(header);
+//     hts_idx_destroy(idx);
+// }
 
 // Read in barcodes file and load sequences into barcodes vector
 void BamHash::set_barcodes(const char* fname, vector<vector<int> >& vec_p)
@@ -266,7 +273,7 @@ void hash_annotation(BamHash* bamhash)
 //     return 0;
 // }
 
-int parse_fastq(BamHash* bamhash) {
+void parse_fastq(BamHash* bamhash) {
     gzFile fp;
     kseq_t* seq;
     int l;
@@ -278,12 +285,13 @@ int parse_fastq(BamHash* bamhash) {
     shared_ptr<BamRecord> record;
     int complete = 0;
     while ((l = kseq_read(seq)) >= 0) {
-        if (!bamhash->find_read(seq->name.s, record)) // sets record to qname_bamrecord
-        {
-            continue;
-        }
+        if (!bamhash->find_read(seq->name.s, record)) continue; // sets record to qname_bamrecord
+        // {
+        //     continue;
+        // }
 
         record->set_bc(bamhash, seq->seq.s, seq->qual.s, &used_offset);
+
         record->set_umi(bamhash, seq->seq.s, seq->qual.s, used_offset);
         used_offset = 0;
 
