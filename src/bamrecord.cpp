@@ -35,7 +35,7 @@ void BamRecord::set_bc(BamHash* bamhash, char* seq, char* qual, int* used_offset
 }
 
 void BamRecord::set_umi(BamHash* bamhash, char* seq, char* qual, int used_offset) {
-    umi2 = get_sequence(seq, qual, bamhash->get_sequence_pos(0), bamhash->get_sequence_pos(1), used_offset);
+    umi2 = get_sequence(seq, qual, bamhash->get_sequence_pos(0), bamhash->get_sequence_pos(1), bamhash->get_bc_min_qual(), used_offset);
 }
 
 bool BamRecord::is_complete() {

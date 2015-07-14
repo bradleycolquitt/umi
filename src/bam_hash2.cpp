@@ -80,7 +80,7 @@ BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* ann
 
         try
         {
-            execute(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene text, position int, umi int, count int);");
+            execute(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, position int, umi int, count int);");
         }
         catch (sql_exception &e)
         {
@@ -342,6 +342,7 @@ void BamHash::write_to_db()
     sqlite3_prepare_v2(conn, insert_sql, BUFFER_SIZE, \
                        &insert_stmt, &tail);
 
+    execute(conn, "BEGIN");
     for (auto& gene : position_map)
     {
         unordered_map<int, unique_ptr<BarcodeHash> >::iterator position = gene.second->begin();

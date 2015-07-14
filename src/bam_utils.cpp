@@ -231,7 +231,8 @@ int get_sequence(char* seq, char* qual, int start, int end, vector<const char*>*
     int min = 100000;
     int qual_int;
     for (int j = start; j <= end ; ++j) {
-        qual_int = int(qual[j]);
+        qual_int = int(qual[j]) - 33;
+        //cout << qual[j] << " " << qual_int << endl;
         if (qual_int < min) min = qual_int;
     }
     if (min < min_qual) return -1;
@@ -313,7 +314,7 @@ uint32_t get_sequence(bam1_t* b, int start, int end, int used_offset) {
 }
 
 //intended for umi
-string get_sequence(char* seq, char* qual, int start, int end, int used_offset)
+string get_sequence(char* seq, char* qual, int start, int end, int min_qual, int used_offset)
 {
     string sseq = string(seq);
     int local_start = start + used_offset;
@@ -328,12 +329,15 @@ string get_sequence(char* seq, char* qual, int start, int end, int used_offset)
     }
 
     int min = 100000;
+    int qual_int = 0;
     for (int j = local_start; j <= local_end ; ++j)
     {
-        if (int(qual[j]) < min) min = int(qual[j]);
+        qual_int = int(qual[j]) - 33;
+        //cout << qual[j] << " " << qual_int << endl;
+        if (qual_int < min) min = qual_int;
     }
 
-    if (min < 20)
+    if (min < min_qual)
     {
         return "NNNNNNNN";
     } else

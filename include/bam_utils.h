@@ -49,7 +49,7 @@ Extract UMI sequence from read[start:end]
 @used_offset, position offset used in barcode ID
 */
 uint32_t get_sequence(bam1_t* b, int start, int end, int used_offset);
-string get_sequence(char* seq, char* qual, int start, int end, int used_offset);
+string get_sequence(char* seq, char* qual, int start, int end, int min_qual, int used_offset);
 
 /*
 used to combine vector of ints into one number
