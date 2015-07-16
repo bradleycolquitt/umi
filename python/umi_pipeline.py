@@ -38,7 +38,7 @@ class Meta:
                 self.meta[i][header[j]] = element
                 j += 1
             i += 1
-
+        #pdb.set_trace()
     def runFeatureCounts(self):
         for element in self.meta:
 
@@ -47,6 +47,9 @@ class Meta:
                         '-T', '10',
                         '-R',
                         '-s', '1',
+                        '-g', 'gene_id',
+                        '-M',
+                        #'--minReadOverlap', '-5000',
                         '-a', element['gtf'],
                         '-o', bam_prefix + ".counts",
                         element['bam']]
@@ -93,6 +96,7 @@ def main(argv):
     args = parser.parse_args()
 
     obj = Meta(args.meta)
+    obj.runFeatureCounts()
     runBamHash(obj)
 
 

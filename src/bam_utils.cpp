@@ -229,6 +229,7 @@ int get_sequence(char* seq, char* qual, int start, int end, vector<const char*>*
                  vector<int>* bc_offsets, int min_qual, int* used_offset)
 {
     //cout << "here get_sequence" << endl;
+
     int min = 100000;
     int qual_int;
     for (int j = start; j <= end ; ++j) {
@@ -311,16 +312,16 @@ string get_sequence(char* seq, char* qual, int start, int end, int min_qual, int
     {
         qual_int = int(qual[j]) - 33;
         //cout << qual[j] << " " << qual_int << endl;
-        if (qual_int < min) min = qual_int;
+        if (qual_int < min_qual) return "NNNNNNNN";
     }
 
-    if (min < min_qual)
-    {
-        return "NNNNNNNN";
-    } else
-    {
+    // if (min < min_qual)
+    // {
+    //     return "NNNNNNNN";
+    //} else
+    //{
         return sseq.substr(local_start, local_end - local_start + 1);
-    }
+    //}
 }
 
 void print_uint8 (uint8_t* arr, int seqlen, bool convert)

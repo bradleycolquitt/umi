@@ -1,16 +1,17 @@
 CC=g++
-TARGET_NAME = ../load2db
-HASH_NAME = ../bam_hash
-HASH_TEST_NAME = ../test_hash
-HASH2_NAME = ../bam_hash2
-HASH2_TEST_NAME = ../test_hash2
-FILTER_NAME = ../bam_filter
-FILTER_TEST_NAME = ../test_filter
-TEST_NAME = ../test
-TEST_BAM_UTILS_NAME = ../test_bam_utils
-TEST_THREAD_NAME = ../test_thread
+BIN=../bin
+TARGET_NAME = ${BIN}/load2db
+HASH_NAME = ${BIN}/bam_hash
+HASH_TEST_NAME = ${BIN}/test_hash
+HASH2_NAME = ${BIN}/bam_hash2
+HASH2_TEST_NAME = ${BIN}/test_hash2
+FILTER_NAME = ${BIN}/bam_filter
+FILTER_TEST_NAME = ${BIN}/test_filter
+TEST_NAME = ${BIN}/test
+TEST_BAM_UTILS_NAME = ${BIN}/test_bam_utils
+TEST_THREAD_NAME = ${BIN}/test_thread
 
-TARGET_SRCS = load2db_merge.cpp
+TARGET_SRCS = load2db_merge.cpp bam_sql_merge.cpp
 HASH_SRCS = bam_hash_main.cpp bam_hash.cpp bamrecord.cpp
 HASH_TEST_SRCS = test_hash.cpp bam_hash.cpp bamrecord.cpp
 HASH2_SRCS = bam_hash2_main.cpp bam_hash2.cpp bamrecord.cpp
@@ -21,7 +22,7 @@ TEST_SRCS = test_merge.cpp
 TEST_BAM_UTILS_SRCS = test_bam_utils.cpp
 TEST_THREAD_SRCS = threaded_sql.cpp
 
-COMMON_SRCS = bam_utils.cpp dbrecord.cpp sql_utils.cpp string_utils.cpp sqlite_wrapper.cpp timing.cpp bam_sql_merge.cpp
+COMMON_SRCS = bam_utils.cpp dbrecord.cpp string_utils.cpp sqlite_wrapper.cpp timing.cpp
 
 COMMON_OBJS := ${COMMON_SRCS:.cpp=.o}
 TARGET_OBJ = ${TARGET_SRCS:.cpp=.o}

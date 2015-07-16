@@ -48,8 +48,9 @@ bool PositionHash::update(shared_ptr<BamRecord> record)
 //                  const char* dest_fname, const char* barcodes_fname, int umi_length, \
 //                  int bc_min_qual,                                       \
 //                  int i5, int i7, bool to_txt)
-BamHash::BamHash(const char* fastq_fname, const char* anno_fname, \
-                 const char* dest_fname, const char* barcodes_fname, int umi_length, \
+BamHash::BamHash(const char* fastq_fname, const char* anno_fname,       \
+                 const char* dest_fname, const char* barcodes_fname,    \
+                 int umi_length,                                        \
                  int bc_min_qual,                                       \
                  int i5, int i7, bool to_txt)
     //: bam_fname(bam_fname)
@@ -73,7 +74,17 @@ BamHash::BamHash(const char* fastq_fname, const char* anno_fname, \
     // }
 
     /* Check existance of files*/
+    if (!std::ifstream(fastq_fname))
+    {
+        std::cout << "! Fastq file (" << fastq_fname << ") doesn't exist!" << std::endl;
+        exit(1);
+    }
 
+    if (!std::ifstream(anno_fname))
+    {
+        std::cout << "! featureCounts file (" << anno_fname << ") doesn't exist!" << std::endl;
+        exit(1);
+    }
 
     boost::filesystem::path dest_fname_path(dest_fname);
     dest_path = boost::filesystem::complete(dest_fname_path);
@@ -153,6 +164,7 @@ void BamHash::set_barcodes(const char* fname, vector<vector<int> >& vec_p)
     }
 }
 
+// As set_barcodes but read in as vector of strings
 void BamHash::set_barcodesA(const char* fname, vector<const char*>& vec_p)
 {
     ifstream bc_s(fname, ifstream::in);
@@ -284,19 +296,13 @@ void parse_fastq(BamHash* bamhash) {
     int used_offset = 0;
     shared_ptr<BamRecord> record;
     int complete = 0;
-    while ((l = kseq_read(seq)) >= 0) {
+    while ((l = kseq_read(seq)) >= 0)
+    {
         if (!bamhash->find_read(seq->name.s, record)) continue; // sets record to qname_bamrecord
-        // {
-        //     continue;
-        // }
-
         record->set_bc(bamhash, seq->seq.s, seq->qual.s, &used_offset);
-
         record->set_umi(bamhash, seq->seq.s, seq->qual.s, used_offset);
         used_offset = 0;
-
-
-            bamhash->update_maps(record);
+        bamhash->update_maps(record);
     }
     kseq_destroy(seq);
     gzclose(fp);
@@ -325,22 +331,21 @@ void BamHash::print_results()
 
     for (auto& gene : position_map)
     {
-            unordered_map<int, unique_ptr<UmiHash> >::iterator barcode = gene.second->begin();
-            for (; barcode != gene.second->end(); ++barcode)
+        unordered_map<int, unique_ptr<UmiHash> >::iterator barcode = gene.second->begin();
+        for (; barcode != gene.second->end(); ++barcode)
+        {
+            unordered_map<string, int>::iterator umi = barcode->second->begin();
+            for (; umi != barcode->second->end(); ++umi)
             {
-                unordered_map<string, int>::iterator umi = barcode->second->begin();
-                for (; umi != barcode->second->end(); ++umi)
-                {
-                    outfile << this->i5 << "\t"
-                         << this->i7 << "\t"
-                         << barcode->first << "\t"
-                         << gene.first << "\t"
-                         //<< position->first << "\t"
-                         << umi->first << "\t"
-                         << umi->second << endl;
-                }
+                outfile << this->i5 << "\t"
+                     << this->i7 << "\t"
+                     << barcode->first << "\t"
+                     << gene.first << "\t"
+                     //<< position->first << "\t"
+                     << umi->first << "\t"
+                     << umi->second << endl;
             }
-        //}
+        }
     }
 }
 
@@ -356,31 +361,30 @@ void BamHash::write_to_db()
     execute(conn, "BEGIN");
     for (auto& gene : position_map)
     {
-            unordered_map<int, unique_ptr<UmiHash> >::iterator barcode = gene.second->begin();
-            for (; barcode != gene.second->end(); ++barcode)
+        unordered_map<int, unique_ptr<UmiHash> >::iterator barcode = gene.second->begin();
+        for (; barcode != gene.second->end(); ++barcode)
+        {
+            unordered_map<string, int>::iterator umi = barcode->second->begin();
+            for (; umi != barcode->second->end(); ++umi)
             {
-                unordered_map<string, int>::iterator umi = barcode->second->begin();
-                for (; umi != barcode->second->end(); ++umi)
-                {
-                    sqlite3_bind_int(insert_stmt, 1, this->i5);
-                    sqlite3_bind_int(insert_stmt, 2, this->i7);
-                    sqlite3_bind_int(insert_stmt, 3, barcode->first);
-                    sqlite3_bind_text(insert_stmt, 4, gene.first.c_str(), -1, SQLITE_TRANSIENT);
-                    //sqlite3_bind_int(insert_stmt, 5, position->first);
-                    //sqlite3_bind_text(insert_stmt, 6, umi->first.c_str(), -1, SQLITE_TRANSIENT);
-                    //sqlite3_bind_int(insert_stmt, 7, umi->second);
-                    sqlite3_bind_text(insert_stmt, 5, umi->first.c_str(), -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_int(insert_stmt, 6, umi->second);
+                sqlite3_bind_int(insert_stmt, 1, this->i5);
+                sqlite3_bind_int(insert_stmt, 2, this->i7);
+                sqlite3_bind_int(insert_stmt, 3, barcode->first);
+                sqlite3_bind_text(insert_stmt, 4, gene.first.c_str(), -1, SQLITE_TRANSIENT);
+                //sqlite3_bind_int(insert_stmt, 5, position->first);
+                //sqlite3_bind_text(insert_stmt, 6, umi->first.c_str(), -1, SQLITE_TRANSIENT);
+                //sqlite3_bind_int(insert_stmt, 7, umi->second);
+                sqlite3_bind_text(insert_stmt, 5, umi->first.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_int(insert_stmt, 6, umi->second);
 
-                    int result = 0;
-                    if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
-                        throw sql_exception(result, sqlite3_errmsg(conn));
-                    }
-                    sqlite3_clear_bindings(insert_stmt);
-                    sqlite3_reset(insert_stmt);
+                int result = 0;
+                if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
+                    throw sql_exception(result, sqlite3_errmsg(conn));
                 }
+                sqlite3_clear_bindings(insert_stmt);
+                sqlite3_reset(insert_stmt);
             }
-        //}
+        }
     }
     execute(conn, "COMMIT");
     sqlite3_finalize(insert_stmt);
