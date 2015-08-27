@@ -107,7 +107,8 @@ BamHash::BamHash(const char* fastq_fname, const char* anno_fname,       \
 
         try
         {
-            execute(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);");
+            exec_multithread(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);" );
+            //execute(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);");
         }
         catch (sql_exception &e)
         {
@@ -162,6 +163,7 @@ void BamHash::set_barcodes(const char* fname, vector<vector<int> >& vec_p)
         vector<int> s2i = seq2int(sline[1]);
         vec_p.push_back(s2i);
     }
+
 }
 
 // As set_barcodes but read in as vector of strings
@@ -177,11 +179,22 @@ void BamHash::set_barcodesA(const char* fname, vector<const char*>& vec_p)
         if ((bc_s.rdstate() & ifstream::failbit ) != 0) {
            cout << "Error" << endl;
         }
-        vector<string> sline = split(line, '\t');
-        const char* bc = sline[1].c_str();
-        vec_p.push_back(strdup(bc));
-
+        std::istringstream iss(line);
+        string id;
+        string bc;
+        if (iss >> id >> bc)
+        {
+            vec_p.push_back(strdup(bc.c_str()));
+        }
+        // vector<string> sline = split(line, '\t');
+        // const char* bc = sline[1].c_str();
     }
+
+    // for (auto& bc : vec_p)
+    // {
+    //     cout << *bc << endl;
+    // }
+
 }
 
 void BamHash::insert_anno(const string & read_id, const string & gene_id)
@@ -349,6 +362,7 @@ void BamHash::print_results()
     }
 }
 
+
 void BamHash::write_to_db()
 {
     const char* tail = 0;
@@ -378,9 +392,10 @@ void BamHash::write_to_db()
                 sqlite3_bind_int(insert_stmt, 6, umi->second);
 
                 int result = 0;
-                if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
-                    throw sql_exception(result, sqlite3_errmsg(conn));
-                }
+                result = step_multithread(conn, insert_stmt);
+                // if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
+                //     throw sql_exception(result, sqlite3_errmsg(conn));
+                // }
                 sqlite3_clear_bindings(insert_stmt);
                 sqlite3_reset(insert_stmt);
             }

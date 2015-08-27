@@ -6,6 +6,7 @@
 #include <boost/format.hpp>
 #include <exception>
 #include <string>
+#include <pthread.h>
 
 using namespace std;
 //using namespace string;
@@ -46,4 +47,6 @@ int bind(sqlite3* conn, sqlite3_stmt* stmt, int index, const char* text);
 bool step(sqlite3 *& conn, sqlite3_stmt** stmt);
 bool step_multiple(sqlite3* conn, const char* sql);
 void reset(sqlite3** conn, sqlite3_stmt** stmt_p);
+int exec_multithread(sqlite3 * conn, const char * stmt);
+int step_multithread(sqlite3 * conn, sqlite3_stmt * insert_stmt);
 #endif

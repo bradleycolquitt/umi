@@ -109,3 +109,63 @@ void reset(sqlite3** conn, sqlite3_stmt** stmt_p) {
         throw sql_exception(result, sqlite3_errmsg(*conn), "reset");
     }
 }
+
+int exec_multithread(sqlite3 * conn, const char * stmt)
+{
+    bool continueTrying = true;
+    int retval = 0;
+    while (continueTrying)
+    {
+        retval = sqlite3_exec(conn, stmt, NULL, NULL, NULL);
+        switch (retval)
+        {
+            case SQLITE_BUSY:
+            //Log("[%s] SQLITE_BUSY: sleeping for a while...", threadName);
+                sleep(1);
+            //sleep a bit... (use something like sleep(), for example)
+                break;
+            case SQLITE_OK:
+                continueTrying = false; // We're done
+                break;
+            case SQLITE_DONE:
+                continueTrying = false;
+                break;
+            default:
+            //Log("[%s] Can't execute \"%s\": %s\n", threadName, sqlQuery, msg);
+                continueTrying = false;
+                throw sql_exception(retval, sqlite3_errmsg(conn));
+                break;
+        }
+    }
+    return retval;
+}
+
+int step_multithread(sqlite3 * conn, sqlite3_stmt * insert_stmt)
+{
+    bool continueTrying = true;
+    int retval = 0;
+    while (continueTrying)
+    {
+        retval = sqlite3_step(insert_stmt);
+        switch (retval)
+        {
+            case SQLITE_BUSY:
+            //Log("[%s] SQLITE_BUSY: sleeping for a while...", threadName);
+                sleep(1);
+            //sleep a bit... (use something like sleep(), for example)
+                break;
+            case SQLITE_OK:
+                continueTrying = false; // We're done
+                break;
+            case SQLITE_DONE:
+                continueTrying = false;
+                break;
+            default:
+            //Log("[%s] Can't execute \"%s\": %s\n", threadName, sqlQuery, msg);
+                continueTrying = false;
+                throw sql_exception(retval, sqlite3_errmsg(conn));
+                break;
+        }
+    }
+    return retval;
+}
