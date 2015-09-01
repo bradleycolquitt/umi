@@ -12,12 +12,6 @@ bool UmiHash::update(shared_ptr<BamRecord> record)
     string umi = record->get_umi2();
 
     result = umi_map.emplace(umi, 1);
-    // if (record->get_gene_id().compare("ERCC-00116") == 0) {
-    //     print = true;
-    //     cout << record->get_read_id() << endl;
-    //     cout << record->get_umi2() << endl;
-    //     cout << result.second << endl;
-    // }''
 
     if (!result.second) {
         //if (print) cout << "initial: " << result.first->second << endl;
@@ -44,16 +38,11 @@ bool PositionHash::update(shared_ptr<BamRecord> record)
 /****************************
    BamHash functions
 *****************************/
-// BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* anno_fname, \
-//                  const char* dest_fname, const char* barcodes_fname, int umi_length, \
-//                  int bc_min_qual,                                       \
-//                  int i5, int i7, bool to_txt)
 BamHash::BamHash(const char* fastq_fname, const char* anno_fname,       \
                  const char* dest_fname, const char* barcodes_fname,    \
                  int umi_length,                                        \
                  int bc_min_qual,                                       \
                  int i5, int i7, bool to_txt)
-    //: bam_fname(bam_fname)
     : fastq_fname(fastq_fname)
     , anno_fname(anno_fname)
     , dest_fname(dest_fname)
@@ -62,16 +51,6 @@ BamHash::BamHash(const char* fastq_fname, const char* anno_fname,       \
     , i7(i7)
     , to_txt(to_txt)
     {
-    //bam = sam_open(bam_fname, "rb");
-
-    //header = sam_hdr_read(bam);
-
-    //idx = bam_index_load(bam_fname);
-
-    // char ** chrom_names = header->target_name;
-    // for (int i = 0 ; i < header->n_targets ; ++i) {
-    //     chroms[i] = chrom_names[i];
-    // }
 
     /* Check existance of files*/
     if (!std::ifstream(fastq_fname))
@@ -104,7 +83,7 @@ BamHash::BamHash(const char* fastq_fname, const char* anno_fname,       \
             cerr << "! Error: opening databases, " << e.what() << endl;
             exit(1);
         }
-
+        sqlite3_busy_timeout(conn, 1000);
         try
         {
             exec_multithread(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);" );
@@ -138,13 +117,6 @@ BamHash::BamHash(const char* fastq_fname, const char* anno_fname,       \
     int offsets_array[] = {0,-1,1};
     bc_offsets.assign(offsets_array, offsets_array + sizeof(offsets_array) / sizeof(int));
 }
-
-// BamHash::~BamHash()
-// {
-//     sam_close(bam);
-//     bam_hdr_destroy(header);
-//     hts_idx_destroy(idx);
-// }
 
 // Read in barcodes file and load sequences into barcodes vector
 void BamHash::set_barcodes(const char* fname, vector<vector<int> >& vec_p)
@@ -186,15 +158,6 @@ void BamHash::set_barcodesA(const char* fname, vector<const char*>& vec_p)
         {
             vec_p.push_back(strdup(bc.c_str()));
         }
-        // vector<string> sline = split(line, '\t');
-        // const char* bc = sline[1].c_str();
-    }
-
-    // for (auto& bc : vec_p)
-    // {
-    //     cout << *bc << endl;
-    // }
-
 }
 
 void BamHash::insert_anno(const string & read_id, const string & gene_id)
@@ -264,40 +227,6 @@ void hash_annotation(BamHash* bamhash)
     cout << endl;
 }
 
-// void process_read2(BamHash* bamhash, shared_ptr<BamRecord> record, bam1_t* b)
-// {
-//     if (bad_cigar(b)) return;
-//     if (filter_multi_reads(b)) return;
-//     record->set_position(b->core.pos);
-//     record->set_tid(b->core.tid);
-// }
-
-// int hash_reads_all(BamHash* bamhash)
-// {
-//     bam1_t* b = bam_init1();
-//     int result;
-//     shared_ptr<BamRecord> record;
-//     int total_count = 0;
-//     int continue_count = 0;
-//     int complete = 0;
-
-//     while ((result = bam_read1(bamhash->get_bam()->fp.bgzf, b)) >= 0)
-//     {
-//         total_count++;
-//         if (!bamhash->find_read(b, record)) // sets record to qname_bamrecord
-//         {
-//             continue_count++;
-//             continue;
-//         }
-//         process_read2(bamhash, record, b);
-//     }
-//     float fraction_not_found = 100 * continue_count / total_count;
-//     cout << "Total reads:                 " << total_count << endl;
-//     cout << "Reads not found in gene set: " << continue_count << " (" << roundf(fraction_not_found) << "%)"<< endl;
-//     bam_destroy1(b);
-//     return 0;
-// }
-
 void parse_fastq(BamHash* bamhash) {
     gzFile fp;
     kseq_t* seq;
@@ -329,7 +258,6 @@ void BamHash::print_results()
     file_header.push_back("i7");
     file_header.push_back("bc");
     file_header.push_back("gene_id");
-    //file_header.push_back("position");
     file_header.push_back("umi");
     file_header.push_back("count");
 
@@ -354,7 +282,6 @@ void BamHash::print_results()
                      << this->i7 << "\t"
                      << barcode->first << "\t"
                      << gene.first << "\t"
-                     //<< position->first << "\t"
                      << umi->first << "\t"
                      << umi->second << endl;
             }
@@ -392,7 +319,7 @@ void BamHash::write_to_db()
                 sqlite3_bind_int(insert_stmt, 6, umi->second);
 
                 int result = 0;
-                result = step_multithread(conn, insert_stmt);
+                sqlite3_step(insert_stmt);
                 // if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
                 //     throw sql_exception(result, sqlite3_errmsg(conn));
                 // }

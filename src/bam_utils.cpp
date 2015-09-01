@@ -239,8 +239,8 @@ int get_sequence(char* seq, char* qual, int start, int end, vector<const char*>*
     }
     if (min < min_qual) return -1;
 
-    // returns index of perfect match or one mismatch
-    return compare_barcode(seq, barcodes, bc_offsets, start, end, used_offset);
+    // returns index of perfect match or one mismatch; +1 for 1-based indexing
+    return compare_barcode(seq, barcodes, bc_offsets, start, end, used_offset) + 1;
 }
 
 int ShiftAdd(int sum, int digit)

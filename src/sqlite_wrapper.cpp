@@ -123,7 +123,7 @@ int exec_multithread(sqlite3 * conn, const char * stmt)
             //Log("[%s] SQLITE_BUSY: sleeping for a while...", threadName);
                 sleep(1);
             //sleep a bit... (use something like sleep(), for example)
-                break;
+                //break;
             case SQLITE_OK:
                 continueTrying = false; // We're done
                 break;
@@ -153,7 +153,7 @@ int step_multithread(sqlite3 * conn, sqlite3_stmt * insert_stmt)
             //Log("[%s] SQLITE_BUSY: sleeping for a while...", threadName);
                 sleep(1);
             //sleep a bit... (use something like sleep(), for example)
-                break;
+                //break;
             case SQLITE_OK:
                 continueTrying = false; // We're done
                 break;

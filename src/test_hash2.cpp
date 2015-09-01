@@ -24,7 +24,7 @@ int main() {
     const char* anno_fname = "/media/data/bam/150709/ercc_cat_space/lib44-exo/lib44-exoAligned.bam.featureCounts";
     const char* dest_fname = "/home/brad/src/umi/test_files/out.txt";
 
-    BamHash* bamhash = new BamHash(bam_fname, fastq_fname, anno_fname, dest_fname, "bc8", 8, 10, 1, 1, true);
+    BamHash* bamhash = new BamHash(fastq_fname, anno_fname, dest_fname, "bc8", 8, 10, 1, 1, true);
 
 
     #ifdef PROFILE

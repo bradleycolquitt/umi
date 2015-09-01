@@ -13,8 +13,11 @@ featureCounts
 bam_hash2
 """
 
+
+import os
 import sys
 import re
+import shutil
 import argparse
 import pdb
 from subprocess import Popen
@@ -26,8 +29,7 @@ class Meta:
         self.meta = []
         header = self.meta_file.readline().strip().split(",")
 
-        #self.quality = quality
-
+        ## Parse metadata file
         i = 0
         for line in self.meta_file:
             if re.search("#", line): continue
@@ -38,18 +40,39 @@ class Meta:
                 self.meta[i][header[j]] = element
                 j += 1
             i += 1
-        #pdb.set_trace()
+
+        for element in self.meta:
+            #pdb.set_trace()
+            fc_dir = "/".join([os.path.dirname(element['bam']), "featureCounts"])
+            if not os.path.exists(fc_dir): os.makedirs(fc_dir)
+
+            element['out_fc'] = "-".join([os.path.basename(element['bam']).split(".bam")[0],
+                                          os.path.basename(element['gtf']).split(".gtf")[0],
+                                          "overlap" + element['minReadOverlap']])
+            element['out_fc'] = "/".join([fc_dir, element['out_fc']])
+
     def runFeatureCounts(self):
         for element in self.meta:
+            if os.path.exists(element['out_fc']):
+                while(True):
+                    dec = raw_input("featureCounts file exists. Overwrite [y/n]?")
+                    if dec == "n":
+                        return
+                    elif dec == "y":
+                        break
+                    else:
+                        print "Try again."
 
             bam_prefix = element['bam'].split(".bam")[0]
             cmd_args = ['featureCounts',
                         '-T', '10',
                         '-R',
+#                        '-t', 'gene',
                         '-s', '1',
                         '-g', 'gene_id',
                         '-M',
-                        #'--minReadOverlap', '-5000',
+#                        '-O',
+                        '--minReadOverlap', element['minReadOverlap'],
                         '-a', element['gtf'],
                         '-o', bam_prefix + ".counts",
                         element['bam']]
@@ -59,16 +82,18 @@ class Meta:
                 p = Popen(cmd_args)
                 p.wait()
             except:
-
                 return
 
-def runBamHashWorker(element):
+            shutil.move(element['bam'] + ".featureCounts",
+                        element['out_fc'])
 
+def runBamHashWorker(element):
     cmd_args = ['bam_hash2',
+                '-u', '10',
                 '-q', element['quality'],
                 '--i7', element['i7'],
                 '--barcode', element['bc'],
-                '--anno', element['bam']+'.featureCounts',
+                '--anno', element['out_fc'],
                 #'--bam', element['bam'],
                 '--fastq', element['fastq'],
                 '--outfile', element['output']]
@@ -83,12 +108,11 @@ def runBamHashWorker(element):
 
 def runBamHash(obj):
     pool = Pool(processes=10)
-    # pdb.set_trace()
     for element in obj.meta:
+        #pool.apply(runBamHashWorker, (element, ))
         pool.apply_async(runBamHashWorker, (element, ))
     pool.close()
     pool.join()
-
 
 def main(argv):
     parser = argparse.ArgumentParser()
