@@ -45,7 +45,7 @@ class Meta:
             #pdb.set_trace()
             fc_dir = "/".join([os.path.dirname(element['bam']), "featureCounts"])
             if not os.path.exists(fc_dir): os.makedirs(fc_dir)
-
+            #element['bam_prefix'] = os.path.basename(element['bam']).split(".bam")[0]
             element['out_fc'] = "-".join([os.path.basename(element['bam']).split(".bam")[0],
                                           os.path.basename(element['gtf']).split(".gtf")[0],
                                           "overlap" + element['minReadOverlap']])
@@ -86,6 +86,8 @@ class Meta:
 
             shutil.move(element['bam'] + ".featureCounts",
                         element['out_fc'])
+            shutil.move(element['bam'].split(".bam")[0] + ".counts.summary",
+                        element['out_fc'] + ".summary")
 
 def runBamHashWorker(element):
     cmd_args = ['bam_hash2',
@@ -109,8 +111,8 @@ def runBamHashWorker(element):
 def runBamHash(obj):
     pool = Pool(processes=10)
     for element in obj.meta:
-        #pool.apply(runBamHashWorker, (element, ))
-        pool.apply_async(runBamHashWorker, (element, ))
+        pool.apply(runBamHashWorker, (element, ))
+       #pool.apply_async(runBamHashWorker, (element, ))
     pool.close()
     pool.join()
 
