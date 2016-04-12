@@ -25,6 +25,7 @@ from multiprocessing import Pool
 
 class Meta:
     def __init__(self, meta_fname):
+        #pdb.set_trace()
         self.meta_file = open(meta_fname)
         self.meta = []
         header = self.meta_file.readline().strip().split(",")
@@ -37,10 +38,10 @@ class Meta:
             self.meta.append(dict())
             j = 0
             for element in sline:
-                self.meta[i][header[j]] = element
+                self.meta[i][header[j]] = element.strip()
                 j += 1
             i += 1
-
+        #pdb.set_trace()
         for element in self.meta:
             #pdb.set_trace()
             fc_dir = "/".join([os.path.dirname(element['bam']), "featureCounts"])
@@ -50,8 +51,14 @@ class Meta:
                                           os.path.basename(element['gtf']).split(".gtf")[0],
                                           "overlap" + element['minReadOverlap']])
             element['out_fc'] = "/".join([fc_dir, element['out_fc']])
+            print element['bam'], element['out_fc']
+
+    def read_config(self):
+        config = ConfigParser.ConfigParser()
+        config.read('config2.config')
 
     def runFeatureCounts(self):
+
         for element in self.meta:
             if os.path.exists(element['out_fc']):
                 while(True):
@@ -62,7 +69,7 @@ class Meta:
                         break
                     else:
                         print "Try again."
-
+            #pdb.set_trace()
             bam_prefix = element['bam'].split(".bam")[0]
             cmd_args = ['featureCounts',
                         '-T', '10',
@@ -70,7 +77,7 @@ class Meta:
 #                        '-t', 'gene',
                         '-s', '1',
                         '-g', 'gene_id',
-                        '-M',
+#                        '-M',
 #                        '-O',
                         '--minReadOverlap', element['minReadOverlap'],
                         '-a', element['gtf'],
@@ -79,8 +86,10 @@ class Meta:
             cmd_args_join = " ".join(cmd_args)
             try:
                 print "Running featureCounts: " + cmd_args_join
-                p = Popen(cmd_args)
+                errlog = open(element['out_fc'] + ".errlog", 'w')
+                p = Popen(cmd_args, stderr=errlog)
                 p.wait()
+                errlog.close()
             except:
                 return
 
@@ -88,6 +97,31 @@ class Meta:
                         element['out_fc'])
             shutil.move(element['bam'].split(".bam")[0] + ".counts.summary",
                         element['out_fc'] + ".summary")
+
+    def collapse(self):
+        cmd_args = ['sqlite3',
+                    self.meta[0]['output'],
+                    '<',
+                    '/home/brad/src/umi/python/filter.sql']
+        p = Popen(cmd_args, shell=T)
+        p.wait()
+
+    def update_info(self):
+        import sqlite3
+        conn = sqlite3.connect(self.meta[0]['output'])
+        c = conn.cursor()
+        fields = self.meta[0].keys()
+        fields = [" ".join([f, "text"]) for f in fields]
+
+        sql = "DROP TABLE IF EXISTS analysis_info"
+        c.execute(sql)
+        sql = "CREATE TABLE analysis_info (" + ",".join(fields) + ")"
+        c.execute(sql)
+        sql = "INSERT INTO analysis_info VALUES (" + ",".join(["'?'" for f in fields]) + ")"
+        for element in self.meta:
+            #sql1 = sql tuple(element.values())
+            c.execute(sql, tuple(element.values()) )
+        conn.commit()
 
 def runBamHashWorker(element):
     cmd_args = ['bam_hash2',
@@ -118,12 +152,14 @@ def runBamHash(obj):
 
 def main(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-m', dest='meta')
+    parser.add_argument('meta', help="CSV file containing samples to process")
     args = parser.parse_args()
 
     obj = Meta(args.meta)
     obj.runFeatureCounts()
     runBamHash(obj)
+    obj.update_info()
+    obj.collapse()
 
 
 if __name__ == "__main__":
