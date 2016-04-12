@@ -77,13 +77,14 @@ BamHash::BamHash(const char* fastq_fname, const char* anno_fname,       \
         try
         {
             open_connection(dest_path.string().c_str(), &conn, true);
+            sqlite3_busy_timeout(conn, 1000);
         }
         catch (sql_exception &e)
         {
             cerr << "! Error: opening databases, " << e.what() << endl;
             exit(1);
         }
-        sqlite3_busy_timeout(conn, 1000);
+
         try
         {
             exec_multithread(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);" );
@@ -158,6 +159,7 @@ void BamHash::set_barcodesA(const char* fname, vector<const char*>& vec_p)
         {
             vec_p.push_back(strdup(bc.c_str()));
         }
+    }
 }
 
 void BamHash::insert_anno(const string & read_id, const string & gene_id)
@@ -320,9 +322,11 @@ void BamHash::write_to_db()
 
                 int result = 0;
                 sqlite3_step(insert_stmt);
-                // if ((result = sqlite3_step(insert_stmt)) != SQLITE_DONE ) {
-                //     throw sql_exception(result, sqlite3_errmsg(conn));
-                // }
+                //if ((result = sqlite3_step(insert_stmt)) == SQLITE_BUSY) {
+                if ((result = sqlite3_step(insert_stmt)) == SQLITE_BUSY )
+                {
+                    throw sql_exception(result, sqlite3_errmsg(conn));
+                }
                 sqlite3_clear_bindings(insert_stmt);
                 sqlite3_reset(insert_stmt);
             }

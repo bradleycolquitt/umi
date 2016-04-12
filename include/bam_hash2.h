@@ -108,12 +108,6 @@ class BamHash
             const char* dest_fname;
             boost::filesystem::path dest_path;
 
-//            samFile* bam;
-//            samFile* outbam;
-            // bam_hdr_t* header;
-            // map<int,char*> chroms;
-            // hts_idx_t* idx;
-
             sqlite3 * conn;
 
             vector<vector<int> > barcodes;
