@@ -14,6 +14,7 @@ bool UmiHash::update(shared_ptr<BamRecord> record)
     result = umi_map.emplace(umi, 1);
 
     if (!result.second) {
+        /* UMI already present in map so increment */
         //if (print) cout << "initial: " << result.first->second << endl;
         ++(result.first->second);
         //if (print) cout << "update: " << result.first->second << endl;
@@ -291,7 +292,6 @@ void BamHash::print_results()
     }
 }
 
-
 void BamHash::write_to_db()
 {
     const char* tail = 0;
@@ -317,11 +317,11 @@ void BamHash::write_to_db()
                 //sqlite3_bind_int(insert_stmt, 5, position->first);
                 //sqlite3_bind_text(insert_stmt, 6, umi->first.c_str(), -1, SQLITE_TRANSIENT);
                 //sqlite3_bind_int(insert_stmt, 7, umi->second);
-                sqlite3_bind_text(insert_stmt, 5, umi->first.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_int(insert_stmt, 6, umi->second);
+                sqlite3_bind_text(insert_stmt, 5, umi->first.c_str(), -1, SQLITE_TRANSIENT); /* UMI */
+                sqlite3_bind_int(insert_stmt, 6, umi->second); /* count */
 
                 int result = 0;
-                sqlite3_step(insert_stmt);
+                //sqlite3_step(insert_stmt);
                 //if ((result = sqlite3_step(insert_stmt)) == SQLITE_BUSY) {
                 if ((result = sqlite3_step(insert_stmt)) == SQLITE_BUSY )
                 {
