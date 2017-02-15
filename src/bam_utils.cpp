@@ -335,3 +335,8 @@ void print_uint8 (uint8_t* arr, int seqlen, bool convert)
     }
     printf("\n");
 }
+
+const char* convert_to_cstr(const string & s)
+{
+    return s.c_str();
+}

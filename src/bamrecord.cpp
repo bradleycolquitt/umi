@@ -11,6 +11,16 @@ BamRecord::BamRecord(int tid)
 {
 }
 
+BamRecord::BamRecord(int tid, int pos)
+    : read_id("")
+    , gene_id("")
+    , tid(tid)
+    , pos(pos)
+    , bc(-1)
+    , umi(0)
+    , umi2("AA")
+{
+}
 BamRecord::BamRecord(const string read_id, const string gene_id)
     : read_id(read_id)
     , gene_id(gene_id)

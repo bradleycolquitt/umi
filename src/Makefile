@@ -5,6 +5,7 @@ HASH_NAME = ${BIN}/bam_hash
 HASH_TEST_NAME = ${BIN}/test_hash
 HASH2_NAME = ${BIN}/bam_hash2
 HASH2_TEST_NAME = ${BIN}/test_hash2
+WRITE_TEST_NAME = ${BIN}/test_write
 FILTER_NAME = ${BIN}/bam_filter
 FILTER_TEST_NAME = ${BIN}/test_filter
 TEST_NAME = ${BIN}/test
@@ -16,6 +17,7 @@ HASH_SRCS = bam_hash_main.cpp bam_hash.cpp bamrecord.cpp
 HASH_TEST_SRCS = test_hash.cpp bam_hash.cpp bamrecord.cpp
 HASH2_SRCS = bam_hash2_main.cpp bam_hash2.cpp bamrecord.cpp
 HASH2_TEST_SRCS = test_hash2.cpp bam_hash2.cpp bamrecord.cpp
+WRITE_TEST_SRCS = bam_write_test.cpp bam_hash2.cpp bamrecord.cpp
 FILTER_SRCS = bam_filter_main.cpp bam_filter.cpp bamrecord.cpp
 FILTER_TEST_SRCS = test_filter.cpp bam_filter.cpp bamrecord.cpp
 TEST_SRCS = test_merge.cpp
@@ -30,6 +32,7 @@ HASH_OBJ = ${HASH_SRCS:.cpp=.o}
 HASH_TEST_OBJ = ${HASH_TEST_SRCS:.cpp=.o}
 HASH2_OBJ = ${HASH2_SRCS:.cpp=.o}
 HASH2_TEST_OBJ = ${HASH2_TEST_SRCS:.cpp=.o}
+WRITE_TEST_OBJ = ${WRITE_TEST_SRCS:.cpp=.o}
 FILTER_OBJ = ${FILTER_SRCS:.cpp=.o}
 FILTER_TEST_OBJ = ${FILTER_TEST_SRCS:.cpp=.o}
 TEST_OBJ = ${TEST_SRCS:.cpp=.o}
@@ -40,7 +43,7 @@ INCLUDE_DIRS := /usr/local/include /home/brad/src/umi/include
 CPPFLAGS += $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 CPPFLAGS += -std=c++11 -W -Wall -Wno-long-long -pedantic -Wno-variadic-macros -fno-omit-frame-pointer
 
-LIBRARY_DIRS := /usr/local/lib
+LIBRARY_DIRS := /usr/local/lib /usr/lib/x86_64-linux-gnu
 LIBS += hts sqlite3 boost_regex boost_program_options boost_system boost_filesystem boost_thread rt z
 LDFLAGS += $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))
 LDFLAGS += $(foreach library, $(LIBS), -l$(library))
@@ -78,6 +81,10 @@ test_hash2: CPPFLAGS += -DDEBUG -g -O3
 test_hash2: COMMON_SRCS += $(HASH2_TEST_SRCS)
 test_hash2: $(HASH2_TEST_NAME)
 
+write_test: CPPFLAGS += -g -O3
+write_test: COMMON_SRCS += $(WRITE_TEST_SRCS)
+write_test: $(WRITE_TEST_NAME)
+
 filter: CPPFLAGS += -O3
 filter: COMMON_SRCS += $(FILTER_SRCS)
 filter: $(FILTER_NAME)
@@ -110,6 +117,9 @@ $(HASH2_NAME): $(HASH2_OBJ) $(COMMON_OBJS)
 $(HASH2_TEST_NAME): $(HASH2_TEST_OBJ) $(COMMON_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(TEST_LDFLAGS)
 
+$(WRITE_TEST_NAME): $(WRITE_TEST_OBJ) $(COMMON_OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS)
+
 $(FILTER_NAME): $(FILTER_OBJ) $(COMMON_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
@@ -120,5 +130,5 @@ $(FILTER_TEST_NAME): $(FILTER_TEST_OBJ) $(COMMON_OBJS)
 	$(CC) $(CPPFLAGS) -c -o $@ $<
 
 clean:
-	@- $(RM) $(TARGET_NAME) $(TEST_NAME) $(TEST_FILTER_NAME) $(HASH2_NAME) $(TEST_HASH2_NAME)
-	@- $(RM) $(COMMON_OBJS) $(TARGET_OBJ) $(TEST_OBJ) $(TEST_FILTER_OBJ) $(HASH2_OBJ) $(TEST_HASH2_OBJ)
+	@- $(RM) $(TARGET_NAME) $(TEST_NAME) $(TEST_FILTER_NAME) $(HASH2_NAME) $(TEST_HASH2_NAME) $(WRITE_TEST_NAME)
+	@- $(RM) $(COMMON_OBJS) $(TARGET_OBJ) $(TEST_OBJ) $(TEST_FILTER_OBJ) $(HASH2_OBJ) $(TEST_HASH2_OBJ) $(WRITE_TEST_OBJ)

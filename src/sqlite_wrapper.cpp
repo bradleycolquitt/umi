@@ -1,7 +1,8 @@
 #include <sqlite_wrapper.h>
 
 void open_connection(const char* fname, sqlite3** conn, bool for_speed) {
-    if (sqlite3_open(fname, conn) != SQLITE_OK) {
+    int result = 0;
+    if ((result = sqlite3_open(fname, conn)) != SQLITE_OK) {
         throw sql_exception(-1, sqlite3_errmsg(*conn));
     }
 

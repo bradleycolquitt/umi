@@ -16,10 +16,6 @@ const size_t SUCCESS = 0;
 const size_t ERROR_UNHANDLED_EXCEPTION = 2;
 } // namespace
 
-const char* convert_to_cstr(const string & s)
-{
-    return s.c_str();
-}
 
 int main(int argc, char** argv) {
     po::options_description desc("Allowed options");
@@ -32,7 +28,7 @@ int main(int argc, char** argv) {
         ("print-to-txt,p", po::bool_switch()->default_value(false), "export results to plain text instead of sqlite3 db")
         ("barcode", po::value<string>(), "prefix of barcode file")
         ("anno", po::value<string>())
-      //  ("bam", po::value<string>())
+        ("bam", po::value<string>())
         ("fastq", po::value<string>())
         ("outfile", po::value<string>())
     ;
@@ -40,7 +36,7 @@ int main(int argc, char** argv) {
     po::positional_options_description positionalOptions;
     positionalOptions.add("barcode", 1);
     positionalOptions.add("anno", 1);
-    //positionalOptions.add("bam", 1);
+    positionalOptions.add("bam", 1);
     positionalOptions.add("fastq", 1);
     positionalOptions.add("outfile", 1);
 
@@ -66,7 +62,7 @@ int main(int argc, char** argv) {
              << "Required options:" << endl
              << "  barcode_prefix : prefix of file found in barcode directory" << endl
              << "  anno : .featureCounts file"  << endl
-             //<< "  bam : BAM to be parsed" << endl
+             << "  bam : BAM to be parsed" << endl
              << "  outfile : output file" << endl;
         cout << desc << endl;
         return SUCCESS;
@@ -86,7 +82,7 @@ int main(int argc, char** argv) {
       return ERROR_IN_COMMAND_LINE;
     }
 
-    //const char* bam_fname = convert_to_cstr(vm["bam"].as<string>());
+    const char* bam_fname = convert_to_cstr(vm["bam"].as<string>());
     const char* fastq_fname = convert_to_cstr(vm["fastq"].as<string>());
     const char* dest_fname = convert_to_cstr(vm["outfile"].as<string>());
     const char* anno_fname = convert_to_cstr(vm["anno"].as<string>());
@@ -99,8 +95,8 @@ int main(int argc, char** argv) {
     int i7 = vm["i7"].as<int>();
     bool to_txt = vm["print-to-txt"].as<bool>();
 
-    //BamHash * bamhash = new BamHash(bam_fname, fastq_fname, anno_fname, dest_fname, barcodes, umi_length, bc_min_qual, i5, i7, to_txt);
-    BamHash * bamhash = new BamHash(fastq_fname, anno_fname, dest_fname, barcodes, umi_length, bc_min_qual, i5, i7, to_txt);
+    BamHash * bamhash = new BamHash(bam_fname, fastq_fname, anno_fname, dest_fname, barcodes, umi_length, bc_min_qual, i5, i7, to_txt);
+    //BamHash * bamhash = new BamHash(fastq_fname, anno_fname, dest_fname, barcodes, umi_length, bc_min_qual, i5, i7, to_txt);
 
     hash_annotation(bamhash);
     bamhash->hash_reads();
