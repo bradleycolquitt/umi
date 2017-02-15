@@ -61,7 +61,7 @@ int bind(sqlite3* conn, sqlite3_stmt* stmt, int index, int value) {
 // DOESN'T WORK
 int bind(sqlite3* conn, sqlite3_stmt* stmt, int index, const char* text) {
     int result = 0;
-    cerr << text << endl;
+    //cerr << text << endl;
     //DEBUG_LOG(text);
     if ((result = sqlite3_bind_text(stmt, index, text, -1, SQLITE_TRANSIENT)) != SQLITE_OK) {
         throw sql_exception(result, sqlite3_errmsg(conn));
