@@ -70,34 +70,34 @@ BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* ann
     // boost::filesystem::path dest_fname_path(dest_fname);
     // dest_path = boost::filesystem::complete(dest_fname_path);
 
-    if (to_txt)
-    {
-        //outfile.open(dest_path.string(), ofstream::out);
-    }
-    else // setup database
-    {
-        try
-        {
-            const char* dest_path_c = dest_path.string().c_str();
-            open_connection(dest_path_c, &conn, true);
-            sqlite3_busy_timeout(conn, 1000);
-        }
-        catch (sql_exception &e)
-        {
-            cerr << "! Error: opening databases, " << e.what() << endl;
-            exit(1);
-        }
+    // if (to_txt)
+    // {
+    //     //outfile.open(dest_path.string(), ofstream::out);
+    // }
+    // else // setup database
+    // {
+    //     try
+    //     {
+    //         const char* dest_path_c = dest_path.string().c_str();
+    //         open_connection(dest_path_c, &conn, true);
+    //         sqlite3_busy_timeout(conn, 1000);
+    //     }
+    //     catch (sql_exception &e)
+    //     {
+    //         cerr << "! Error: opening databases, " << e.what() << endl;
+    //         exit(1);
+    //     }
 
-        try
-        {
-            exec_multithread(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);" );
-            //execute(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);");
-        }
-        catch (sql_exception &e)
-        {
-            cerr << "! Error: creating table, " << e.what() << endl;
-        }
-    }
+    //     try
+    //     {
+    //         exec_multithread(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);" );
+    //         //execute(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);");
+    //     }
+    //     catch (sql_exception &e)
+    //     {
+    //         cerr << "! Error: creating table, " << e.what() << endl;
+    //     }
+    // }
 
     //Barcode setup
     char bc_path[255];
@@ -174,6 +174,11 @@ void BamHash::set_barcodesA(const char* fname, vector<const char*>& vec_p)
     }
 }
 
+void BamHash::open_bam()
+{
+    in_bam = sam_open(bam_fname, "rb");
+}
+
 void BamHash::insert_anno(const string & read_id, const string & gene_id)
 {
     qname_bamrecord.emplace(read_id, shared_ptr<BamRecord>(new BamRecord(read_id, gene_id)));
@@ -181,7 +186,9 @@ void BamHash::insert_anno(const string & read_id, const string & gene_id)
 
 void BamHash::insert_bam_pos(string & qname, bam1_t* br)
 {
-    bam_map.emplace(qname, shared_ptr<BamRecord>(new BamRecord(br->core.tid, br->core.pos)));
+    bam_map.emplace(qname, shared_ptr<BamRecord>(new BamRecord(br->core.tid, br->core.pos, qname)));
+    //unordered_map<string, shared_ptr<BamRecord> >::iterator result = bam_map.find(qname);
+    //cout << result->first << " " << result->second->get_tid() << " " << result->second->get_pos() << endl;
 }
 
 bool BamHash::find_read(bam1_t * b, shared_ptr<BamRecord> & record)
@@ -204,6 +211,21 @@ bool BamHash::find_read(char * qname, shared_ptr<BamRecord> & record)
     string read_id = string(qname);
     unordered_map<string, shared_ptr<BamRecord> >::iterator result;
     if ((result = qname_bamrecord.find(read_id)) != qname_bamrecord.end())
+    {
+        record = result->second;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool BamHash::find_bamread(char * qname, shared_ptr<BamRecord> & record)
+{
+    string read_id = string(qname);
+    unordered_map<string, shared_ptr<BamRecord> >::iterator result;
+    if ((result = bam_map.find(read_id)) != bam_map.end())
     {
         record = result->second;
         return true;
@@ -248,8 +270,6 @@ void hash_annotation(BamHash* bamhash)
 
 void hash_bam(BamHash* bamhash)
 {
-    cout << "here" << endl;
-
     samFile* in_bam = sam_open(bamhash->get_bam(), "r");
     bamhash->set_bam(in_bam);
 
@@ -275,26 +295,21 @@ void hash_bam(BamHash* bamhash)
     const char* qname;
     string qname_s;
 
-    cout << "here" << endl;
     while (tid < header->n_targets)
     {
         cout << tid << endl;
 
         hts_itr_t* itr = bam_itr_queryi(idx, tid, 0, header->target_len[tid]);
-        //hts_itr_t* itr = bam_itr_queryi(idx, tid, 0, 50);
-
-
-        //cout << "here" << endl;
-        //res = bam_itr_next(in_bam, itr, br);
-        //cout << res << endl;
-        while((res = bam_itr_next(in_bam, itr, br)) >= 0) {
+        while((res = bam_itr_next(in_bam, itr, br)) >= 0)
+        {
              qname = bam_get_qname(br);
              qname_s = string(qname);
              bamhash->insert_bam_pos(qname_s, br);
-             //bam_map->emplace(qname, shared_ptr<bam1_t*>(&br));
-         }
+        }
         tid++;
     }
+    bam_destroy1(br);
+    bam_hdr_destroy(header);
 
 }
 void parse_fastq(BamHash* bamhash) {
@@ -328,24 +343,27 @@ void parse_bam_by_fastq(BamHash* bamhash) {
     fp = gzopen(bamhash->get_fastq(), "r");
     seq = kseq_init(fp);
 
+    bamhash->open_bam();
     int used_offset = 0;
     shared_ptr<BamRecord> record;
+
+    //cout << seq->seq.s << seq->qual.s
     //int complete = 0;
     while ((l = kseq_read(seq)) >= 0)
     {
-        if (!bamhash->find_read(seq->name.s, record)) continue;
+        if (!bamhash->find_bamread(seq->name.s, record)) continue;
         record->set_bc(bamhash, seq->seq.s, seq->qual.s, &used_offset);
         bamhash->split_bam_by_record(record);
         used_offset = 0;
-
     }
     kseq_destroy(seq);
     gzclose(fp);
+    cout << "here" << endl;
+    bamhash->close_out_bams();
 }
 
 void BamHash::split_bam_by_record(shared_ptr<BamRecord> record)
 {
-
     hts_itr_t* itr = bam_itr_queryi(bam_idx, record->get_tid(), record->get_pos(), record->get_pos() + 1);
     bam1_t* br = bam_init1();
     int res = 0;
@@ -353,22 +371,26 @@ void BamHash::split_bam_by_record(shared_ptr<BamRecord> record)
     while ((res = bam_itr_next(in_bam, itr, br))>=0)
     {
         qname = bam_get_qname(br);
-        const char * read_id_c = record->get_read_id().c_str();
+        string read_id = record->get_read_id();
+        const char * read_id_c = read_id.c_str();
+        //cout << "qname: " << qname << " read_id: " << read_id_c << " tid: " << record->get_tid() << endl;
         if (strcmp(qname, read_id_c))
         {
             unordered_map<int,samFile*>::const_iterator got = out_bam_map.find (record->get_bc());
-
+            //cout << record->get_bc() << endl;
             if ( got == out_bam_map.end() )
             {
+                //cout << "nope" << endl;
                 continue;
             }
             else
             {
-                std::cout << got->first << " is " << got->second;
+                //std::cout << got->first << " is " << got->second;
                 bam_write1(got->second->fp.bgzf, br);
             }
         }
     }
+    bam_destroy1(br);
 
 }
 
@@ -458,6 +480,7 @@ void BamHash::split_bam()
 {
     hash_bam(this);
     setup_out_bams();
+    //close_out_bams();
     parse_bam_by_fastq(this);
 }
 
@@ -488,20 +511,32 @@ void BamHash::setup_out_bams()
        string fname_cur = outdir + "/" + basename + "_bc" + to_string(bc_index) + ".bam";
        const char* fname_cur_cs = convert_to_cstr(fname_cur);
        samFile* out_bam = sam_open(fname_cur_cs, "wb");
-       cout << bc_cur << fname_cur << endl;
        out_bam_map.insert({bc_index, out_bam});
        bc_index++;
     }
 
+    // add file for unsorted
+    string fname_cur = outdir + "/" + basename + "_bc0.bam";
+    const char* fname_cur_cs = convert_to_cstr(fname_cur);
+    samFile* out_bam = sam_open(fname_cur_cs, "wb");
+    out_bam_map.insert({-1, out_bam});
+
     // write header
     for (auto it = out_bam_map.begin(); it != out_bam_map.end(); ++it)
     {
-       cout << it->first << endl;
+       //cout << it->first << endl;
        bam_hdr_write(it->second->fp.bgzf, header);
-       sam_close(it->second);
+       //sam_close(it->second);
     }
 }
 
+void BamHash::close_out_bams()
+{
+    for (auto it = out_bam_map.begin(); it != out_bam_map.end(); ++it)
+    {
+        sam_close(it->second);
+    }
+}
 void BamHash::write_bam()
 {
     //seq =  kseq_init(f_rd);

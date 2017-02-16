@@ -38,7 +38,8 @@ int main(int argc, char** argv) {
     //BamHash * bamhash = new BamHash(fastq_fname, anno_fname, dest_fname, barcodes, umi_length, bc_min_qual, i5, i7, to_txt);
 
     //bamhash->write_bam(out_fname);
-    hash_bam(bamhash);
+    //hash_bam(bamhash);
+    bamhash->split_bam();
     //hash_annotation(bamhash);
     //bamhash->hash_reads();
 

@@ -191,7 +191,6 @@ int compare_barcode(char* seq, vector<const char*>* barcodes, vector<int>* bc_of
     for (; offsets_iter != offsets_iter_end; ++offsets_iter) {
         bc_iter = barcodes->begin();
         for (; bc_iter != bc_iter_end ; ++bc_iter) {
-
             if (compare_barcode_local(bc_iter, seq, start + *offsets_iter, end + *offsets_iter)) {
                 *used_offset = *offsets_iter;
                 return i;
@@ -200,7 +199,7 @@ int compare_barcode(char* seq, vector<const char*>* barcodes, vector<int>* bc_of
         }
         i = 0;
     }
-    return -2;
+    return -3;
 }
 
 //for barcodes
@@ -228,8 +227,6 @@ int get_sequence(bam1_t* b, int start, int end, vector<vector<int> >* barcodes, 
 int get_sequence(char* seq, char* qual, int start, int end, vector<const char*>* barcodes, \
                  vector<int>* bc_offsets, int min_qual, int* used_offset)
 {
-    //cout << "here get_sequence" << endl;
-
     int min = 100000;
     int qual_int;
     for (int j = start; j <= end ; ++j) {
@@ -237,7 +234,8 @@ int get_sequence(char* seq, char* qual, int start, int end, vector<const char*>*
         //cout << qual[j] << " " << qual_int << endl;
         if (qual_int < min) min = qual_int;
     }
-    if (min < min_qual) return -1;
+    cout << min_qual << endl;
+    if (min < min_qual) return -2;
 
     // returns index of perfect match or one mismatch; +1 for 1-based indexing
     return compare_barcode(seq, barcodes, bc_offsets, start, end, used_offset) + 1;
