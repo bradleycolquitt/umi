@@ -143,8 +143,8 @@ int compare_barcode_local(vector<const char*>::iterator bc_iter, char* seq, int 
 
     for (int j = start; j <= end ; ++j)
     {
+        //cout << (*bc_iter)[k];
         if (mm > 1) return 0; // return after second mismatch
-
         if ((*bc_iter)[k] != seq[j]) mm += 1;
         ++k;
     }
@@ -167,9 +167,7 @@ int compare_barcode(uint8_t* seq, vector<vector<int> >* barcodes, vector<int>* b
     for (; offsets_iter != offsets_iter_end; ++offsets_iter) {
         bc_iter = barcodes->begin();
         for (; bc_iter != bc_iter_end ; ++bc_iter) {
-
             if (compare_barcode_local(bc_iter, seq, start + *offsets_iter, end + *offsets_iter)) {
-
                 *used_offset = *offsets_iter;
                 return i;
             }
@@ -188,9 +186,15 @@ int compare_barcode(char* seq, vector<const char*>* barcodes, vector<int>* bc_of
     vector<const char*>::iterator bc_iter_end = barcodes->end();
 
     int i = 0;
+    // for (int j = start ; j < end ; ++j)
+    // {
+    //     cout << seq[j];
+    // }
+    // cout << endl;
     for (; offsets_iter != offsets_iter_end; ++offsets_iter) {
         bc_iter = barcodes->begin();
         for (; bc_iter != bc_iter_end ; ++bc_iter) {
+            //cout << *bc_iter << endl;
             if (compare_barcode_local(bc_iter, seq, start + *offsets_iter, end + *offsets_iter)) {
                 *used_offset = *offsets_iter;
                 return i;
@@ -199,7 +203,7 @@ int compare_barcode(char* seq, vector<const char*>* barcodes, vector<int>* bc_of
         }
         i = 0;
     }
-    return -3;
+    return -2;
 }
 
 //for barcodes
@@ -234,8 +238,8 @@ int get_sequence(char* seq, char* qual, int start, int end, vector<const char*>*
         //cout << qual[j] << " " << qual_int << endl;
         if (qual_int < min) min = qual_int;
     }
-    cout << min_qual << endl;
-    if (min < min_qual) return -2;
+    //cout << min << " " << min_qual << endl;
+    if (min < min_qual) return -6;
 
     // returns index of perfect match or one mismatch; +1 for 1-based indexing
     return compare_barcode(seq, barcodes, bc_offsets, start, end, used_offset) + 1;

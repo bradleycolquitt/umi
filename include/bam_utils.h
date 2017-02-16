@@ -56,4 +56,7 @@ used to combine vector of ints into one number
 */
 int shift_add(int sum, int digit);
 void print_uint8(uint8_t* arr, int seqlen, bool convert);
+
+const char* convert_to_cstr(const string & s);
+
 #endif

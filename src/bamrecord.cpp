@@ -21,6 +21,19 @@ BamRecord::BamRecord(int tid, int pos, string read_id)
     , umi2("AA")
 {
 }
+
+BamRecord::BamRecord(bam1_t* br, string read_id)
+    : read_id(read_id)
+    , gene_id("")
+    , tid(0)
+    , pos(0)
+    , bc(-1)
+    , umi(0)
+    , umi2("AA")
+    , br(br)
+{
+    //brs(br);
+}
 BamRecord::BamRecord(const string read_id, const string gene_id)
     : read_id(read_id)
     , gene_id(gene_id)
@@ -42,7 +55,7 @@ void BamRecord::set_umi(BamHash* bamhash, bam1_t* b, int used_offset) {
 
 void BamRecord::set_bc(BamHash* bamhash, char* seq, char* qual, int* used_offset) {
     bc = get_sequence(seq, qual, bamhash->get_sequence_pos(2), bamhash->get_sequence_pos(3), bamhash->get_barcodesA(), bamhash->get_bc_offsets(), bamhash->get_bc_min_qual(), used_offset);
-    cout << bc << endl;
+    //cout << bc << endl;
 }
 
 void BamRecord::set_umi(BamHash* bamhash, char* seq, char* qual, int used_offset) {

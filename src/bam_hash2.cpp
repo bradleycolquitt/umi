@@ -110,6 +110,7 @@ BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* ann
         cout << e.what() << endl;
     }
 
+
     //Positions of UMI and barcodes relative to 5' end of read
     sequence_pos.push_back(0);
     sequence_pos.push_back(umi_length-1);
@@ -168,8 +169,7 @@ void BamHash::set_barcodesA(const char* fname, vector<const char*>& vec_p)
         if (iss >> id >> bc)
         {
             const char* bc_s = bc.c_str();
-            //vec_p.push_back(strdup(bc.c_str()));
-            vec_p.push_back(bc_s);
+            vec_p.push_back(strdup(bc_s));
         }
     }
 }
@@ -187,8 +187,11 @@ void BamHash::insert_anno(const string & read_id, const string & gene_id)
 void BamHash::insert_bam_pos(string & qname, bam1_t* br)
 {
     bam_map.emplace(qname, shared_ptr<BamRecord>(new BamRecord(br->core.tid, br->core.pos, qname)));
-    //unordered_map<string, shared_ptr<BamRecord> >::iterator result = bam_map.find(qname);
-    //cout << result->first << " " << result->second->get_tid() << " " << result->second->get_pos() << endl;
+}
+
+void BamHash::insert_bam_read(string & qname, bam1_t* br)
+{
+    bam_map.emplace(qname, shared_ptr<BamRecord>(new BamRecord(br, qname)));
 }
 
 bool BamHash::find_read(bam1_t * b, shared_ptr<BamRecord> & record)
@@ -288,23 +291,22 @@ void hash_bam(BamHash* bamhash)
     bamhash->set_bam_idx(idx);
     bam1_t* br = bam_init1();
 
-    // loop through tids
-    // iterate through reads and add to unordered_map
     int tid = 0;
     int res = 0;
     const char* qname;
     string qname_s;
-
+    // loop through tids, adding bam reads to unordered_map, indexed by qname
     while (tid < header->n_targets)
     {
         cout << tid << endl;
-
         hts_itr_t* itr = bam_itr_queryi(idx, tid, 0, header->target_len[tid]);
         while((res = bam_itr_next(in_bam, itr, br)) >= 0)
         {
+             bam1_t* br1 = bam_init1();
+             br1 = bam_dup1(br);
              qname = bam_get_qname(br);
              qname_s = string(qname);
-             bamhash->insert_bam_pos(qname_s, br);
+             bamhash->insert_bam_read(qname_s, br1);
         }
         tid++;
     }
@@ -322,7 +324,6 @@ void parse_fastq(BamHash* bamhash) {
 
     int used_offset = 0;
     shared_ptr<BamRecord> record;
-    //int complete = 0;
     while ((l = kseq_read(seq)) >= 0)
     {
         if (!bamhash->find_read(seq->name.s, record)) continue; // sets record to qname_bamrecord
@@ -347,52 +348,95 @@ void parse_bam_by_fastq(BamHash* bamhash) {
     int used_offset = 0;
     shared_ptr<BamRecord> record;
 
-    //cout << seq->seq.s << seq->qual.s
-    //int complete = 0;
+    int read_count = 0;
+    bool report = false;
     while ((l = kseq_read(seq)) >= 0)
     {
+
+        //if (report) cout << "finding read" << endl;
         if (!bamhash->find_bamread(seq->name.s, record)) continue;
+        //if (report) cout << "setting bc" << endl;
         record->set_bc(bamhash, seq->seq.s, seq->qual.s, &used_offset);
-        bamhash->split_bam_by_record(record);
+        //if (report) cout << "splitting bam" << endl;
+        //bamhash->split_bam_by_record(record);
+        bamhash->write_bamread(record);
+        //if (report) cout << "done splitting" << endl;
+        //if (report) report = false;
         used_offset = 0;
+        if (read_count % 100000 == 0)
+            cout << read_count << endl;
+        ++read_count;
     }
     kseq_destroy(seq);
     gzclose(fp);
-    cout << "here" << endl;
     bamhash->close_out_bams();
 }
 
 void BamHash::split_bam_by_record(shared_ptr<BamRecord> record)
 {
-    hts_itr_t* itr = bam_itr_queryi(bam_idx, record->get_tid(), record->get_pos(), record->get_pos() + 1);
+    hts_itr_t* itr = bam_itr_queryi(bam_idx, record->get_tid(), record->get_pos(), record->get_pos()+1);
     bam1_t* br = bam_init1();
     int res = 0;
+    int write_res = 0;
+    int selected_reads = 0;
     const char* qname;
+    string read_id;
+    const char * read_id_c;
+    unordered_map<int,samFile*>::const_iterator got;
+
     while ((res = bam_itr_next(in_bam, itr, br))>=0)
     {
+        ++selected_reads;
         qname = bam_get_qname(br);
-        string read_id = record->get_read_id();
-        const char * read_id_c = read_id.c_str();
-        //cout << "qname: " << qname << " read_id: " << read_id_c << " tid: " << record->get_tid() << endl;
-        if (strcmp(qname, read_id_c))
+        read_id = record->get_read_id();
+        read_id_c = read_id.c_str();
+
+        //cout << "checking" << endl;
+        //cout << qname << " " << read_id_c << endl;
+        if (strcmp(qname, read_id_c) == 0)
         {
-            unordered_map<int,samFile*>::const_iterator got = out_bam_map.find (record->get_bc());
+            //cout << "match" << endl;
+            //cout << qname << " " << read_id_c << endl;
+            got = out_bam_map.find (record->get_bc());
             //cout << record->get_bc() << endl;
             if ( got == out_bam_map.end() )
             {
-                //cout << "nope" << endl;
+                cout << "nope" << endl;
                 continue;
             }
             else
             {
-                //std::cout << got->first << " is " << got->second;
-                bam_write1(got->second->fp.bgzf, br);
+                //cout << br->core.tid << " " << br->core.pos << " " << record->get_bc() << endl;
+                write_res = bam_write1(got->second->fp.bgzf, br);
+                //cout << write_res << endl;
             }
         }
     }
+    //cout << "Number of selected reads: " << selected_reads << endl;
     bam_destroy1(br);
 
 }
+
+void BamHash::write_bamread(shared_ptr<BamRecord> record)
+{
+    int write_res = 0;
+    unordered_map<int,samFile*>::const_iterator got;
+    got = out_bam_map.find (record->get_bc());
+
+    if  (got == out_bam_map.end() )
+    {
+                //cout << "nope" << endl;
+    }
+    else
+    {
+                //cout << br->core.tid << " " << br->core.pos << " " << record->get_bc() << endl;
+    write_res = bam_write1(got->second->fp.bgzf, record->get_bamread());
+                //cout << write_res << endl;
+    }
+        //}
+    }
+    //cout << "Number of selected reads: " << selected_reads << endl;
+    //bam_destroy1(br);
 
 void BamHash::print_results()
 {
@@ -480,8 +524,8 @@ void BamHash::split_bam()
 {
     hash_bam(this);
     setup_out_bams();
-    //close_out_bams();
     parse_bam_by_fastq(this);
+    //close_out_bams();
 }
 
 void BamHash::setup_out_bams()
@@ -524,10 +568,11 @@ void BamHash::setup_out_bams()
     // write header
     for (auto it = out_bam_map.begin(); it != out_bam_map.end(); ++it)
     {
-       //cout << it->first << endl;
        bam_hdr_write(it->second->fp.bgzf, header);
-       //sam_close(it->second);
     }
+
+
+
 }
 
 void BamHash::close_out_bams()
@@ -537,136 +582,7 @@ void BamHash::close_out_bams()
         sam_close(it->second);
     }
 }
-void BamHash::write_bam()
-{
-    //seq =  kseq_init(f_rd);
-    // bam = sam_open(bam_fname, "r");
 
-    /* set up BAMs for all libraries */
-    string bam_fname1 = string(bam_fname);
-    samFile* in_bam = sam_open(bam_fname, "r");
-    size_t lastindex = bam_fname1.find_last_of(".");
-    string rawname = bam_fname1.substr(0, lastindex);
-    string basename = boost::filesystem::basename(bam_fname1);
-    string outdir = rawname;
-
-    boost::filesystem::path dir(outdir);
-
-    if(!(boost::filesystem::exists(dir))){
-        if (boost::filesystem::create_directory(dir))
-            std::cout << "....Successfully Created !" << std::endl;
-    }
-
-    /* create unordered_map of bam_objects keyed by bc */
-    unordered_map<string, samFile* > bam_map;
-    bam_hdr_t* header = sam_hdr_read(in_bam);
-    for (auto it = barcodesA.begin(); it != barcodesA.end(); ++it)
-    {
-       const char* bc_cur = *it;
-       string fname_cur = outdir + "/" + basename + "_" + bc_cur + ".bam";
-       const char* fname_cur_cs = convert_to_cstr(fname_cur);
-       samFile* out_bam = sam_open(fname_cur_cs, "wb");
-       cout << bc_cur << fname_cur << endl;
-       bam_map.insert({bc_cur, out_bam});
-    }
-
-    // write header
-    for (auto it = bam_map.begin(); it != bam_map.end(); ++it)
-    {
-       cout << it->first << endl;
-       bam_hdr_write(it->second->fp.bgzf, header);
-       sam_close(it->second);
-    }
-
-    //gzFile fp;
-    //kseq_t* seq;
-    //int l;
-
-    //fp = gzopen(fastq_fname, "r");
-    //seq = kseq_init(fp);
-
-    //int used_offset = 0;
-    //shared_ptr<BamRecord> record;
-    //int complete = 0;
-
-    //const hts_idx_t* idx = bam_index_load(bam_fname);
-    //hts_itr
-    //bam1_t* br = bam_init1();
-
-    //const char* fastq_name;
-    //const char* qname;
-    // iterate through fastq and bam
-    // while ((l = kseq_read(seq)) >= 0 && (res = bam_itr_next(in_bam, itr, br)) >= 0)
-    // {
-    //     fastq_name = seq->name.s;
-    //     qname = bam_get_qname(br);
-    //     cout << fastq_name << " " << qname << endl;
-    //     //hts_itr_t* read_itr = bam_itr_querys(idx, header, seq->name.s);
-
-    //     //int res = bam_readrec(in_bam->fp.bgzf, NULL, read, read_itr->tid, read_itr->beg, read_itr->end);
-    //     //cout << read->core.tid << endl;
-    //     //if (!bamhash->find_read(seq->name.s, record)) continue; // sets record to qname_bamrecord
-    //     //record->set_bc(bamhash, seq->seq.s, seq->qual.s, &used_offset);
-    //     //record->set_umi(bamhash, seq->seq.s, seq->qual.s, used_offset);
-    //     //used_offset = 0;
-    //     //bamhash->update_maps(record);
-    // }
-    // kseq_destroy(seq);
-    // gzclose(fp);
-
-
-    // get barcode
-    // get bam1
-    // write bam read to approriate file
-
-    // for ( auto it = qname_bamrecord.begin(); it != qname_bamrecord.end(); ++it )
-    // {
-    // //     bam1_t *q = bam_init1();
-    // }
-
-    //     printf("%s, %s\n", seq->seq.s, seq->qual.s);
-
-    //     //`q->data` structure: qname-cigar-seq-qual-aux
-
-    //     q->l_data = seq->name.l+1+(int)(1.5*seq->seq.l+(seq->seq.l % 2 != 0)); // +1 includes the tailing '\0'
-    //     if (q->m_data < q->l_data) {
-    //         q->m_data = q->l_data;
-    //         kroundup32(q->m_data);
-    //         q->data = (uint8_t*)realloc(q->data, q->m_data);
-    //     }
-    //     q->core.flag = BAM_FMUNMAP;
-    //     q->core.l_qname = seq->name.l+1; // +1 includes the tailing '\0'
-    //     q->core.l_qseq = seq->seq.l;
-    //     q->core.n_cigar = 0; // we have no cigar sequence
-    //     memcpy(q->data, seq->name.s, q->core.l_qname); // first set qname
-    //     uint8_t *s = bam_get_seq(q);
-    //     for (int i = 0; i < q->core.l_qseq; ++i){
-
-    //         bam1_seq_seti(s, i, seq_nt16_table[seq->seq.s[i]]);
-    //     }
-    //     s = bam_get_qual(q);
-    //     for (int i = 0; i < seq->qual.l; ++i) {
-    //         s[i] = seq->qual.s[i];
-    //     }
-    //     dump_read(q);
-    //     int ret = bam_write1(fp, q);
-    //     printf("return value: %d\n", ret);
-    //     bam_destroy1(q);
-    // }
-    // kseq_destroy(seq); // free seq
-    // gzclose(f_rd); // close fastq file
-    // bgzf_close(fp); // close bam file
-
-
-    // // validate bam file
-    // BGZF *fp_new = bgzf_open(fn_out,"r");
-    // bam1_t *q = bam_init1();
-    // int ret = bam_read1(fp_new, q);
-    // printf("%d\n", ret);
-    // printf("%d, %d\n", (char *)bam_get_aux(q) - (char *)q->data , q->l_data);
-    // dump_read(q);
-    // return 0;
-}
 void BamHash::hash_reads()
 {
     cout << "----Parsing information reads----" << endl;
