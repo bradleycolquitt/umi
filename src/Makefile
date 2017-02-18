@@ -6,6 +6,7 @@ HASH_TEST_NAME = ${BIN}/test_hash
 HASH2_NAME = ${BIN}/bam_hash2
 HASH2_TEST_NAME = ${BIN}/test_hash2
 WRITE_TEST_NAME = ${BIN}/test_write
+BAM_SPLIT_NAME = ${BIN}/bam_split
 FILTER_NAME = ${BIN}/bam_filter
 FILTER_TEST_NAME = ${BIN}/test_filter
 TEST_NAME = ${BIN}/test
@@ -18,6 +19,7 @@ HASH_TEST_SRCS = test_hash.cpp bam_hash.cpp bamrecord.cpp
 HASH2_SRCS = bam_hash2_main.cpp bam_hash2.cpp bamrecord.cpp
 HASH2_TEST_SRCS = test_hash2.cpp bam_hash2.cpp bamrecord.cpp
 WRITE_TEST_SRCS = bam_write_test.cpp bam_hash2.cpp bamrecord.cpp
+BAM_SPLIT_SRCS = bam_write.cpp bam_hash2.cpp bamrecord.cpp
 FILTER_SRCS = bam_filter_main.cpp bam_filter.cpp bamrecord.cpp
 FILTER_TEST_SRCS = test_filter.cpp bam_filter.cpp bamrecord.cpp
 TEST_SRCS = test_merge.cpp
@@ -33,6 +35,7 @@ HASH_TEST_OBJ = ${HASH_TEST_SRCS:.cpp=.o}
 HASH2_OBJ = ${HASH2_SRCS:.cpp=.o}
 HASH2_TEST_OBJ = ${HASH2_TEST_SRCS:.cpp=.o}
 WRITE_TEST_OBJ = ${WRITE_TEST_SRCS:.cpp=.o}
+BAM_SPLIT_OBJ = ${BAM_SPLIT_SRCS:.cpp=.o}
 FILTER_OBJ = ${FILTER_SRCS:.cpp=.o}
 FILTER_TEST_OBJ = ${FILTER_TEST_SRCS:.cpp=.o}
 TEST_OBJ = ${TEST_SRCS:.cpp=.o}
@@ -85,6 +88,10 @@ write_test: CPPFLAGS += -g -O3
 write_test: COMMON_SRCS += $(WRITE_TEST_SRCS)
 write_test: $(WRITE_TEST_NAME)
 
+bam_split: CPPFLAGS += -O3 -g
+bam_split: COMMON_SRCS += $(BAM_SPLIT_SRCS)
+bam_split: $(BAM_SPLIT_NAME)
+
 filter: CPPFLAGS += -O3
 filter: COMMON_SRCS += $(FILTER_SRCS)
 filter: $(FILTER_NAME)
@@ -120,6 +127,9 @@ $(HASH2_TEST_NAME): $(HASH2_TEST_OBJ) $(COMMON_OBJS)
 $(WRITE_TEST_NAME): $(WRITE_TEST_OBJ) $(COMMON_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
+$(BAM_SPLIT_NAME): $(BAM_SPLIT_OBJ) $(COMMON_OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS)
+
 $(FILTER_NAME): $(FILTER_OBJ) $(COMMON_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
@@ -130,5 +140,5 @@ $(FILTER_TEST_NAME): $(FILTER_TEST_OBJ) $(COMMON_OBJS)
 	$(CC) $(CPPFLAGS) -c -o $@ $<
 
 clean:
-	@- $(RM) $(TARGET_NAME) $(TEST_NAME) $(TEST_FILTER_NAME) $(HASH2_NAME) $(TEST_HASH2_NAME) $(WRITE_TEST_NAME)
-	@- $(RM) $(COMMON_OBJS) $(TARGET_OBJ) $(TEST_OBJ) $(TEST_FILTER_OBJ) $(HASH2_OBJ) $(TEST_HASH2_OBJ) $(WRITE_TEST_OBJ)
+	@- $(RM) $(TARGET_NAME) $(TEST_NAME) $(TEST_FILTER_NAME) $(HASH2_NAME) $(TEST_HASH2_NAME) $(WRITE_TEST_NAME) $(BAM_SPLIT_NAME)
+	@- $(RM) $(COMMON_OBJS) $(TARGET_OBJ) $(TEST_OBJ) $(TEST_FILTER_OBJ) $(HASH2_OBJ) $(TEST_HASH2_OBJ) $(WRITE_TEST_OBJ) $(BAM_SPLIT_OBJ)

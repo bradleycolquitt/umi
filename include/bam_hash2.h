@@ -136,6 +136,8 @@ class BamHash
             BamHash(const char* bam_fname, const char* fastq_fname, const char* anno_name,
                      const char* final_fname, const char* barcodes_fname,
                      int umi_length, int bc_min_qual, int i5, int i7, bool to_txt);
+            BamHash(const char* bam_fname, const char* fastq_fname,
+                    const char* barcodes_fname, int umi_length, int bc_min_qual);
             //BamHash(const char* fastq_fname, const char* anno_name,
             //        const char* final_fname, const char* barcodes_fname,
             //        int umi_length, int bc_min_qual, int i5, int i7, bool to_txt);

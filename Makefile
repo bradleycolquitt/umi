@@ -1,7 +1,7 @@
 CC=g++
 SRC_DIR = src
 
-.PHONY: target test test_bam_utils thread hash test_hash hash2 test_hash2 filter test_filter
+.PHONY: target test test_bam_utils thread hash test_hash hash2 test_hash2 filter test_filter write_test
 
 target:
 	${MAKE} -C ${SRC_DIR} $@
@@ -25,6 +25,9 @@ hash2:
 	${MAKE} -C ${SRC_DIR} $@
 
 test_hash2:
+	${MAKE} -C ${SRC_DIR} $@
+
+write_test:
 	${MAKE} -C ${SRC_DIR} $@
 
 filter:

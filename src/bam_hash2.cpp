@@ -55,49 +55,101 @@ BamHash::BamHash(const char* bam_fname, const char* fastq_fname, const char* ann
     {
 
     /* Check existance of files*/
-    // if (!std::ifstream(fastq_fname))
-    // {
-    //     std::cout << "! Fastq file (" << fastq_fname << ") doesn't exist!" << std::endl;
-    //     exit(1);
-    // }
+    if (!std::ifstream(fastq_fname))
+    {
+        std::cout << "! Fastq file (" << fastq_fname << ") doesn't exist!" << std::endl;
+        exit(1);
+    }
 
-    // if (!std::ifstream(anno_fname))
-    // {
-    //     std::cout << "! featureCounts file (" << anno_fname << ") doesn't exist!" << std::endl;
-    //     exit(1);
-    // }
+    if (!std::ifstream(anno_fname))
+    {
+        std::cout << "! featureCounts file (" << anno_fname << ") doesn't exist!" << std::endl;
+        exit(1);
+    }
 
-    // boost::filesystem::path dest_fname_path(dest_fname);
-    // dest_path = boost::filesystem::complete(dest_fname_path);
+    boost::filesystem::path dest_fname_path(dest_fname);
+    dest_path = boost::filesystem::complete(dest_fname_path);
 
-    // if (to_txt)
-    // {
-    //     //outfile.open(dest_path.string(), ofstream::out);
-    // }
-    // else // setup database
-    // {
-    //     try
-    //     {
-    //         const char* dest_path_c = dest_path.string().c_str();
-    //         open_connection(dest_path_c, &conn, true);
-    //         sqlite3_busy_timeout(conn, 1000);
-    //     }
-    //     catch (sql_exception &e)
-    //     {
-    //         cerr << "! Error: opening databases, " << e.what() << endl;
-    //         exit(1);
-    //     }
+    if (to_txt)
+    {
+        //outfile.open(dest_path.string(), ofstream::out);
+    }
+    else // setup database
+    {
+        try
+        {
+            const char* dest_path_c = dest_path.string().c_str();
+            open_connection(dest_path_c, &conn, true);
+            sqlite3_busy_timeout(conn, 1000);
+        }
+        catch (sql_exception &e)
+        {
+            cerr << "! Error: opening databases, " << e.what() << endl;
+            exit(1);
+        }
 
-    //     try
-    //     {
-    //         exec_multithread(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);" );
-    //         //execute(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);");
-    //     }
-    //     catch (sql_exception &e)
-    //     {
-    //         cerr << "! Error: creating table, " << e.what() << endl;
-    //     }
-    // }
+        try
+        {
+            exec_multithread(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);" );
+            //execute(conn, "CREATE TABLE IF NOT EXISTS counts (i5 int, i7 int, bc int, gene_id text, umi int, count int);");
+        }
+        catch (sql_exception &e)
+        {
+            cerr << "! Error: creating table, " << e.what() << endl;
+        }
+    }
+
+    //Barcode setup
+    char bc_path[255];
+    strcpy(bc_path, BC_PATH);
+    strcat(bc_path, barcodes_fname);
+    strcat(bc_path, ".txt");
+    try {
+        set_barcodesA(bc_path, barcodesA);
+    } catch (exception &e) {
+        cout << e.what() << endl;
+        exit(-1);
+    }
+
+
+    //Positions of UMI and barcodes relative to 5' end of read
+    sequence_pos.push_back(0);
+    sequence_pos.push_back(umi_length-1);
+    sequence_pos.push_back(umi_length);
+    size_t bc_length = sizeof(barcodes[0]) / sizeof(barcodes[0][0]);
+    sequence_pos.push_back(sequence_pos[2] + bc_length - 1);
+
+    // defines offsets used during barcode search
+    int offsets_array[] = {0,-1,1};
+    bc_offsets.assign(offsets_array, offsets_array + sizeof(offsets_array) / sizeof(int));
+}
+
+BamHash::BamHash(const char* bam_fname, const char* fastq_fname, \
+                 const char* barcodes_fname,    \
+                 int umi_length,                                        \
+                 int bc_min_qual)
+    : bam_fname(bam_fname)
+    , fastq_fname(fastq_fname)
+    , anno_fname("")
+    , dest_fname("")
+    , bc_min_qual(bc_min_qual)
+    , i5(1)
+    , i7(1)
+    , to_txt(false)
+    {
+
+    /* Check existance of files*/
+    if (!std::ifstream(fastq_fname))
+    {
+        std::cout << "! Fastq file (" << fastq_fname << ") doesn't exist!" << std::endl;
+        exit(1);
+    }
+
+    if (!std::ifstream(bam_fname))
+    {
+        std::cout << "! BAM file (" << bam_fname << ") doesn't exist!" << std::endl;
+        exit(1);
+    }
 
     //Barcode setup
     char bc_path[255];
@@ -298,7 +350,7 @@ void hash_bam(BamHash* bamhash)
     // loop through tids, adding bam reads to unordered_map, indexed by qname
     while (tid < header->n_targets)
     {
-        cout << tid << endl;
+        //cout << tid << endl;
         hts_itr_t* itr = bam_itr_queryi(idx, tid, 0, header->target_len[tid]);
         while((res = bam_itr_next(in_bam, itr, br)) >= 0)
         {
@@ -350,23 +402,18 @@ void parse_bam_by_fastq(BamHash* bamhash) {
 
     int read_count = 0;
     bool report = false;
+    int display_unit = 1000000;
     while ((l = kseq_read(seq)) >= 0)
     {
-
-        //if (report) cout << "finding read" << endl;
         if (!bamhash->find_bamread(seq->name.s, record)) continue;
-        //if (report) cout << "setting bc" << endl;
         record->set_bc(bamhash, seq->seq.s, seq->qual.s, &used_offset);
-        //if (report) cout << "splitting bam" << endl;
-        //bamhash->split_bam_by_record(record);
         bamhash->write_bamread(record);
-        //if (report) cout << "done splitting" << endl;
-        //if (report) report = false;
         used_offset = 0;
-        if (read_count % 100000 == 0)
-            cout << read_count << endl;
+        if (read_count % display_unit == 0)
+            cout << read_count / display_unit << "M " << flush;
         ++read_count;
     }
+    cout << endl;
     kseq_destroy(seq);
     gzclose(fp);
     bamhash->close_out_bams();
@@ -522,8 +569,10 @@ void BamHash::write_to_db()
 
 void BamHash::split_bam()
 {
+    cout << "Hashing BAM file...";
     hash_bam(this);
     setup_out_bams();
+    cout << "Parsing BAM by FASTQ barcodes...";
     parse_bam_by_fastq(this);
     //close_out_bams();
 }
