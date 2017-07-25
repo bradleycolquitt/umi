@@ -10,7 +10,7 @@ def main(argv):
     parser.add_argument('meta', help="TSV file containing samples to process")
     args = parser.parse_args()
 
-    obj = Meta(args.meta)
+    obj = uu.Meta(args.meta)
 
     if args.process=="pipeline":
         obj.runFeatureCounts()

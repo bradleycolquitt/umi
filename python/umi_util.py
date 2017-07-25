@@ -131,6 +131,7 @@ class Meta:
         print("Running featureCounts...")
         for element in self.data_files:
             print element['bam']
+            #pdb.set_trace()
             if os.path.exists(element['out_fc']):
                 x = True
                 while(True):
